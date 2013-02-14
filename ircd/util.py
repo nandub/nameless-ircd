@@ -1,4 +1,7 @@
+# -*- coding: utf-8 -*-
+
 import base64, hashlib, os, hmac
+from functools import wraps
 def _tripcode(data,salt):
     code = ''
     for digest in ['sha512','sha256']:
@@ -39,12 +42,19 @@ def filter_unicode(data):
     # for marcusw's utf-8 allergies
     for n in range(20):
         data = data.replace(chr(n),'')
-    return unicode(data).decode('ascii',errors='replace')
+    return "".join([c if ord(c) < 128 else '?' for c in data.decode('utf8')])
 
 _salt = 'salt'
 if os.path.exists('salt'):
     with open('salt') as s:
        _salt = s.read()
+
+
+def deprecate(f):
+    @wraps(f)
+    def w(*args,**kwds):
+        raise Exception('Attempted to call Deprecated function %s'%f.func_name)
+    return w
 
 tripcode = lambda nick, trip : _tripcode(nick+'|'+trip,_salt)
 i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))

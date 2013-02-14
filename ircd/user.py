@@ -1,11 +1,34 @@
-
+# -*- coding: utf-8 -*-
 from time import time as now
 import util
-import base64, os, re
+import base64, os
+
+
+class modes:
+
+    def __init__(self):
+        self._modes = {}
+
+    def __getitem__(self,key):
+        if key in self._modes:
+            return self._modes[key]
+        return '-'
+    
+    def __setitem__(self,key,val):
+        self._modes[key] = val
+
+    def __delitem__(self,key):
+        if key in self._modes:
+            del self._modes[key]
+
+    def __iter__(self):
+        return self._modes.__iter__()
+
 class User:
     def __init__(self,server):
         self.after_motd = None
         self.last_ping_recv = now()
+        self.last_ping_send = 0
         self.server = server
         self.host = 'nameless'
         self.nick = ''
@@ -13,7 +36,7 @@ class User:
         self.name = ''
         self.last_ping = 0
         self.chans = []
-        self.modes = []
+        self.modes = modes()
         self.welcomed = False
         self._bad_chars = [
             '!','@','#','$','%',
@@ -22,19 +45,22 @@ class User:
             "'",'~','.',',',':'
             ]
         self.__str__ = self.user_mask
-        self.dbg = lambda msg: server.dbg('%s : %s'%(self,unicode(msg)))
+        self.dbg = lambda msg: server.dbg('%s : %s'%(self,util.filter_unicode(msg)))
         self.handle_error = self.server.handle_error
 
 
     def send_notice(self,src,msg):
         self.action(src,'notice',msg)
 
-    def privmsg(self,src,msg):
-        if 'P' in self.modes: msg = re.sub('\w*', 'poni', msg)
-        self.action(src,'privmsg',msg)
+    def privmsg(self,src,msg,dst=None):
+        if 'P' in self.modes and dst is not None:
+            msg = ' '.join(map( lambda p : 'poni' , msg.split(' ')))
+        self.action(src,'privmsg',msg,dst=dst)
 
-    def action(self,src,type,msg):
-        self.send_raw(':%s %s %s :%s'%(src, type.upper(),self.user_mask(),msg))
+    def action(self,src,type,msg,dst=None):
+        if dst is None:
+            dst = self
+        self.send_raw(':%s %s %s :'%(src, type.upper(),dst)+msg)
 
     def close_user(self):
         self.dbg('%s closing connection'%self)
@@ -44,16 +70,16 @@ class User:
             self.server.users.pop(self.nick)
 
     def event(self,src,type,msg):
-        self.send_raw(':%s %s :%s'%(src,type.upper(),msg))
+        self.send_raw(':%s %s :'%(src,type.upper())+msg)
 
     def send_raw(self,data):
         if not 'u' in self.modes:
-            data = "".join([c if ord(c) < 128 else '?' for c in data.decode('utf8')])
+            data = util.filter_unicode(data)
         self.dbg('[%s]Send %s'%(self.host[0],data))
         try:
             self.send_msg(data)
         except:
-            self.dbg('err sending to %s'%self)
+            self.handle_error()
 
     def user_mask(self):
         return '%s!anon@%s' %(self.nick,self.server.name)
@@ -68,12 +94,12 @@ class User:
     def on_ping(self,ping):
         self.dbg(ping)
         ping = ping.split(' ')[0]
-        self.send_raw(':%s PONG %s :%s'%(self.server.name,self.server.name,ping))
+        self.send_raw(':%s PONG %s :'%(self.server.name,self.server.name)+ping)
         self.last_ping_recv = now()
 
     def send_ping(self):
         self.last_ping_send = now()
-        self.send_raw('PING %s'%(self.last_ping_send))
+        self.send_raw('PING nameless')
 
 
     def join_chan(self,chan):
@@ -97,15 +123,19 @@ class User:
         else:
             chan.send_topic_to_user(self)
 
+    def you_poni_now(self):
+        self.set_mode('+P')
+        if 'P' in self.modes:
+            self.send_notice('ponyserv!service@%s'%self.server.name,'you pony now')
+
+
     def _set_single_mode(self,modechar,enabled):
         if enabled:
-            if not modechar in self.modes:
-                self.modes.append(modechar)
-                self.send_raw(':%s MODE %s :+%s'%(self.nick,self.nick,modechar))
+            self.modes[modechar] = '+'
+            self.send_raw(':%s MODE %s :+%s'%(self.nick,self.nick,modechar))
         else:
-            if modechar in self.modes:
-                self.modes.remove(modechar)
-                self.send_raw(':%s MODE %s :-%s'%(self.nick,self.nick,modechar))
+            del self.modes[modechar]
+            self.send_raw(':%s MODE %s :-%s'%(self.nick,self.nick,modechar))
     
     def set_mode(self,modestring):
         state = None #true for +, false for -
@@ -136,15 +166,17 @@ class User:
             nick = nick.strip()
             i = nick.index('#')
             trip = util.tripcode(nick[:i],nick[i+1:])
-            nick = util.filter_unicode(nick[:i])
+            nick = util.filter_unicode(nick[:i]).replace('?','|')
             for c in nick:
                 if c in self._bad_chars:
+                    self.dbg('bad char '+c)
                     return self._rand_nick(6)
             nick += '|' 
             return nick + trip[:len(trip)/2]        
         return self._rand_nick(6)
 
     def got_line(self,inbuffer):
+        self.dbg('got line '+inbuffer)
         p = inbuffer.split(' ')
         l = len(p)
         data = inbuffer.lower()

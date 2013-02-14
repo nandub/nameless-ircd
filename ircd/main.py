@@ -22,12 +22,17 @@ def main():
     ap.add_argument('--port',type=int,help='port to run on',default=6666)
     ap.add_argument('--host',type=str,help='bind host',default='127.0.0.1')
     ap.add_argument('--opt',type=str,help='options',default=None)
+    ap.add_argument('--pony',type=str,help='pony mode',default=None)
     args = ap.parse_args()
-    signal.signal(signal.SIGHUP,hup)
+    if hasattr(signal,'SIGHUP'):
+        signal.signal(signal.SIGHUP,hup)
     log = False
     if args.opt is not None:
         log = args.opt.strip() == 'log'
-    server.Server((args.host,args.port),do_log=log)
+    poni = args.pony is not None
+    if poni:
+        print 'Pony mode enganged'
+    server.Server((args.host,args.port),do_log=log,poni=poni)
     asyncore.loop()
 
 

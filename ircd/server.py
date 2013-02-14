@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from asynchat import async_chat
 from asyncore import dispatcher
 from time import time as now
@@ -7,7 +9,7 @@ from threading import Thread
 import user
 User = user.User
 import socket,asyncore,base64,os,threading,traceback
-import services
+import services, util
 
 BaseUser = user.BaseUser
 
@@ -88,7 +90,7 @@ class Channel:
                 src = '%s!anon@%s'%(orig.nick,self.server.name)
                 if user == orig:
                     src = orig.user_mask()
-            user.send_raw(':%s PRIVMSG %s :%s'%(src,self.name,msg))
+            user.privmsg(orig,msg,dst=self)
 
     def send_who(self,user):
         mod = '='  or ( self.is_invisible and '@' ) or (self.name[0] == '&' and '*' )
@@ -119,8 +121,16 @@ class _user(async_chat):
         self.got_line(b)
 
     def send_msg(self,msg):
+        for c in msg:
+            if ord(c) > 128:
+                self.push(msg+'\r\n')
+                return
+        self.unicode_send_msg(msg.encode('ascii'))
+                
+        
+    def unicode_send_msg(self,msg):
         self.push(msg+'\r\n')
-
+        
 
 
 class User(_user,BaseUser):
@@ -133,23 +143,37 @@ class User(_user,BaseUser):
         self.close_user()
         self.close()
 
+
+class admin(dispatcher):
+    def __init__(self,server):
+        self.server = server
+        dispatcher.__init__(self)
+        self.nfo = lambda m: self.server.nfo('adminloop: '+str(m))
+        if not hasattr(socket,'AF_UNIX'):
+            self.nfo('not using admin module')
+            return
+        self.create_socket(socket.AF_UNIX,socket.SOCK_DGRAM)
+        self.set_reuse_addr()
+        self.bind('admin.sock')
+
 class Server(dispatcher):
-    def __init__(self,addr,name='nameless',do_log=False):
+    def __init__(self,addr,name='nameless',do_log=False,poni=False):
         self._no_log = not do_log
+        self.poniponi = poni
         dispatcher.__init__(self)
         self.create_socket(socket.AF_INET,socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind(addr)
         self.listen(5)
         self.admin_backlog = []
+        self.handlers = []
         self.admin = None
         self.name = name
         self.chans = dict()
         self.users = dict()
         self.pingtimeout = 60 * 5
         self.ping_retry = 2
-        self.threads = []
-        self.handlers = []
+
         self.on =True
         
         ###
@@ -164,16 +188,25 @@ class Server(dispatcher):
         # be done such that this ugly crap isn't needed
         #
         ###
-        for t in [self.pingloop,self.pongloop,self.adminloop]:
-            t = self._fork(t)
-            self.threads.append(t)
+        #for t in [self.pingloop,self.pongloop,self.adminloop]:
+        #    t = self._fork(t)
+        #    self.threads.append(t)
         self.service = dict()
-        for t in self.threads:
-            t.start()
+        #for t in self.threads:
+        #    t.start()
         for k in services.services.keys():
             self.service[k] = services.services[k](self)
             self.add_user(self.service[k])
 
+
+    def readable(self):
+        for user in self.handlers:
+            if now() - user.last_ping_recv > self.pingtimeout:
+                self.nfo('timeout '+user)
+                user.timeout()
+            elif now() - user.last_ping_send > self.pingtimeout / 2:
+                user.send_ping()
+        return dispatcher.readable(self)
 
     def toggle_debug(self):
         self._no_log = not self._no_log
@@ -181,6 +214,10 @@ class Server(dispatcher):
     def debug(self):
         return not self._no_log
 
+    def nfo(self,msg):
+        self._log('NFO',msg)
+
+    @util.deprecate
     def _fork(self,func):
         def f():
             try:
@@ -199,9 +236,9 @@ class Server(dispatcher):
         self.close_user(user)
 
     def privmsg(self,user,dest,msg):
-        msg = msg[1:]
+   
         onion = user.nick.endswith('.onion')
-        self.dbg('privmsg %s -> %s -- %s'%(user.nick,dest,msg))
+        self.dbg('privmsg %s -> %s -- %s'%(user.nick,dest,util.filter_unicode(msg)))
         if (dest[0] in ['&','#'] and not self._has_channel(dest)) or (dest[0] not in ['&','#'] and dest not in self.users):
             user.send_num(401,'%s :No such nick/channel'%dest)
             return
@@ -243,10 +280,12 @@ class Server(dispatcher):
     
 
     def _log(self,type,msg):
-        if self._no_log:
+        if self._no_log and type.lower() not in ['err','ftl']:
             return
-        with open('log/server.log','a') as f:
-            f.write('[%s -- %s] %s\n'%(type,now(),msg))
+        print type, msg
+        
+        #with open('log/server.log','a') as f:
+        #    f.write('[%s -- %s] %s\n'%(type,now(),msg))
 
 
     def send_motd(self,user):
@@ -257,7 +296,7 @@ class Server(dispatcher):
 
     def send_welcome(self,user):
         if not user.nick.endswith('.onion'):
-            user.send_num('001','HOLY CRAP CONNECTED')
+            user.send_num('001','HOLY CRAP CONNECTED %s'%(user))
             #user.send_num('002','Your host is %s, running version nameless-ircd'%self.name)
             #user.send_num('003','This server was created a while ago')
             #user.send_num('004','%s nameless-ircd x m'%self.name)
@@ -267,11 +306,13 @@ class Server(dispatcher):
         if user.nick.endswith('.onion'):
             return
         user.welcomed = True
+        if self.poniponi:
+            user.you_poni_now()
 
     def dbg(self,msg):
         self._log('DBG',msg)
 
-
+    @util.deprecate
     def _iter(self,f_iter,f_cycle,timesleep):
         while self.on:
             f_cycle()
@@ -284,15 +325,17 @@ class Server(dispatcher):
     
 
     def err(self,msg):
-        try:
-            with open('log/errors.log','a') as a:
-                a.write(msg)
-                a.write('\n')
-        except:
-            pass
+        self._log('ERR',msg)
+        #try:
+        #    with open('log/errors.log','a') as a:
+        #        a.write(msg)
+        #        a.write('\n')
+        #except:
+        #     traceback.print_exc()
 
 
     def handle_error(self):
+        traceback.print_exc()
         self.err(traceback.format_exc())
 
     def close_user(self,user):
@@ -304,6 +347,7 @@ class Server(dispatcher):
         except:
             self.err(traceback.format_exc())
 
+    @util.deprecate
     def pongloop(self):
         def check_ping(user):
             if now() - user.last_ping_recv > self.pingtimeout:
@@ -325,6 +369,7 @@ class Server(dispatcher):
             with open('log/admin.log','a') as a:
                 a.write('%s -- %s'%(now(),msg))
                 a.write('\n')
+    @util.deprecate
     def adminloop(self):
         # wont work on windows
         if not hasattr(socket,'AF_UNIX'):
@@ -417,7 +462,6 @@ class Server(dispatcher):
             user.send_num(433, "%s :Nickname is already in use"%newnick)
             if newnick == user.nick: return
             newnick = user.do_nickname('')
-        self.users[user.nick] = user #FIXME: this isn't necessary...is it?
         self.users[newnick] = self.users.pop(user.nick)
         for u in self.users.values():
             if not isinstance(u, User): continue
@@ -440,4 +484,4 @@ class Server(dispatcher):
         pair = self.accept()
         if pair is not None:
             sock, addr = pair
-            User(sock,self)
+            self.handlers.append(User(sock,self))
