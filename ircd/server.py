@@ -145,7 +145,9 @@ class User(_user,BaseUser):
 
 
 class admin(dispatcher):
-    def __init__(self,server):
+    def __init__(self,server,path):
+        if os.path.exists(path):
+            os.unlink(path)
         self.server = server
         dispatcher.__init__(self)
         self.nfo = lambda m: self.server.nfo('adminloop: '+str(m))
@@ -154,7 +156,17 @@ class admin(dispatcher):
             return
         self.create_socket(socket.AF_UNIX,socket.SOCK_DGRAM)
         self.set_reuse_addr()
-        self.bind('admin.sock')
+        self.bind(path)
+        self.nfo('adminserv ready')
+
+    def handle_read(self):
+        data = self.recv(1024)
+        try:
+            for line in data.split('\n'):
+                self.nfo('adminserv got line '+line)
+                self.server.service['admin'].handle_line(line)
+        except:
+            self.server.send_admin(traceback.format_exc())
 
 class Server(dispatcher):
     def __init__(self,addr,name='nameless',do_log=False,poni=False):
@@ -280,7 +292,7 @@ class Server(dispatcher):
     
 
     def _log(self,type,msg):
-        if self._no_log and type.lower() not in ['err','ftl']:
+        if self._no_log and type.lower() not in ['nfo','err','ftl']:
             return
         print type, msg
         

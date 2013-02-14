@@ -75,7 +75,7 @@ class User:
     def send_raw(self,data):
         if not 'u' in self.modes:
             data = util.filter_unicode(data)
-        self.dbg('[%s]Send %s'%(self.host[0],data))
+        self.dbg('[%s]Send %s'%(self.host,data))
         try:
             self.send_msg(data)
         except:
@@ -92,7 +92,6 @@ class User:
         self.last_ping_recv = now()
 
     def on_ping(self,ping):
-        self.dbg(ping)
         ping = ping.split(' ')[0]
         self.send_raw(':%s PONG %s :'%(self.server.name,self.server.name)+ping)
         self.last_ping_recv = now()

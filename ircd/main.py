@@ -32,7 +32,8 @@ def main():
     poni = args.pony is not None
     if poni:
         print 'Pony mode enganged'
-    server.Server((args.host,args.port),do_log=log,poni=poni)
+    serv = server.Server((args.host,args.port),do_log=log,poni=poni)
+    server.admin(serv,'admin.sock')
     asyncore.loop()
 
 
