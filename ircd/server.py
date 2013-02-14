@@ -90,7 +90,7 @@ class Channel:
                 src = '%s!anon@%s'%(orig.nick,self.server.name)
                 if user == orig:
                     src = orig.user_mask()
-            user.privmsg(orig,msg,dst=self)
+            user.privmsg(src,msg,dst=self)
 
     def send_who(self,user):
         mod = '='  or ( self.is_invisible and '@' ) or (self.name[0] == '&' and '*' )
