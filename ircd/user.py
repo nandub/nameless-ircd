@@ -52,9 +52,27 @@ class User:
     def send_notice(self,src,msg):
         self.action(src,'notice',msg)
 
+    def poni_filter(self,msg):
+        out = ''
+        for word in msg.split(' '):
+            if len(word) == 0:
+                continue
+            if word.lower() in self.server.get_whitelist():
+                out += word
+            elif '"' == word[0]:
+                out += '"'
+                out += self.server.poniponi
+            elif '"' == word[-1]:
+                out += self.server.poniponi
+                out += '"'
+            else:
+                out += self.server.poniponi
+            out += ' '
+        return out
+
     def privmsg(self,src,msg,dst=None):
         if 'P' in self.modes and dst is not None:
-            msg = ' '.join(map( lambda p : 'poni' , msg.split(' ')))
+            msg = self.poni_filter(msg)
         self.action(src,'privmsg',msg,dst=dst)
 
     def action(self,src,type,msg,dst=None):

@@ -75,6 +75,15 @@ class adminserv(Service):
         if cmd == 'debug':
             self.server.toggle_debug()
             self.server.send_admin('DEBUG: %s' % self.server.debug())
+        if cmd == 'pony':
+            if len(args) == 1:
+                if args[0] == 'off':
+                    self.server.poniponi = None
+                    for user in self.server.handlers:
+                        user.set_mode('-P')
+                else:
+                    self.server.poniponi = args[0]
+            self.server.send_admin('PONY: %s'%self.server.poniponi or 'off')
         if cmd == 'global':
             msg = line[6:]
             self.server.send_global(msg)

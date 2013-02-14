@@ -8,7 +8,7 @@ from random import randint as rand
 from threading import Thread
 import user
 User = user.User
-import socket,asyncore,base64,os,threading,traceback
+import socket,asyncore,base64,os,threading,traceback, json
 import services, util
 
 BaseUser = user.BaseUser
@@ -169,7 +169,7 @@ class admin(dispatcher):
             self.server.send_admin(traceback.format_exc())
 
 class Server(dispatcher):
-    def __init__(self,addr,name='nameless',do_log=False,poni=False):
+    def __init__(self,addr,name='nameless',do_log=False,poni=None):
         self._no_log = not do_log
         self.poniponi = poni
         dispatcher.__init__(self)
@@ -185,7 +185,14 @@ class Server(dispatcher):
         self.users = dict()
         self.pingtimeout = 60 * 5
         self.ping_retry = 2
-
+        
+        self.whitelist = [
+            'marcusw','\01action\01'
+            ]
+        try:
+            self.load_wl()
+        except:
+            self.handle_error()
         self.on =True
         
         ###
@@ -211,11 +218,16 @@ class Server(dispatcher):
             self.add_user(self.service[k])
 
 
+    def load_wl(self):
+        with open('whitelist.txt') as f:
+            self.whitelist = json.load(f)
+
     def readable(self):
         for user in self.handlers:
             if now() - user.last_ping_recv > self.pingtimeout:
-                self.nfo('timeout '+user)
+                self.nfo('timeout '+str(user))
                 user.timeout()
+                self.handlers.remove(user)
             elif now() - user.last_ping_send > self.pingtimeout / 2:
                 user.send_ping()
         return dispatcher.readable(self)
@@ -318,7 +330,7 @@ class Server(dispatcher):
         if user.nick.endswith('.onion'):
             return
         user.welcomed = True
-        if self.poniponi:
+        if self.poniponi is not None:
             user.you_poni_now()
 
     def dbg(self,msg):
@@ -454,6 +466,12 @@ class Server(dispatcher):
             user.chans.append(chan)
         else:
             user.send_notice('chanserv!service@%s'%self.name,'bad channel name: %s'%chan)
+
+    def reload(self):
+        self.load_wl()
+    
+    def get_whitelist(self):
+        return self.whitelist
 
     def remove_channel(self,chan):
         chan = chan.lower()

@@ -2,13 +2,12 @@
 import server
 import user
 import signal, traceback, asyncore
-
+serv = None
 def hup(sig,frame):
     print 'reload'
     try:
-        reload(server.user)
-        reload(server.services)
-        reload(server)
+        global serv
+        serv.reload()
     except:
         print 'Error reloading'
         print traceback.format_exc()
@@ -29,9 +28,10 @@ def main():
     log = False
     if args.opt is not None:
         log = args.opt.strip() == 'log'
-    poni = args.pony is not None
-    if poni:
+    poni = args.pony
+    if poni is not None:
         print 'Pony mode enganged'
+    global serv
     serv = server.Server((args.host,args.port),do_log=log,poni=poni)
     server.admin(serv,'admin.sock')
     asyncore.loop()

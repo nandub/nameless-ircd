@@ -40,8 +40,6 @@ def socks_connect(host,port,socks_host):
 
 def filter_unicode(data):
     # for marcusw's utf-8 allergies
-    for n in range(20):
-        data = data.replace(chr(n),'')
     return "".join([c if ord(c) < 128 else '?' for c in data.decode('utf8')])
 
 _salt = 'salt'
