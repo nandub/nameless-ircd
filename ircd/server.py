@@ -479,8 +479,8 @@ class Server(dispatcher):
             if u == user: continue
             print u.nick, user.chans, u.chans
             for chan in set(user.chans).intersection(u.chans):
-                print chan, self.chans[chan].is_anon()
-                if not self.chans[chan].is_anon():
+                print chan, self.chans[chan].is_anon
+                if not self.chans[chan].is_anon:
                     u.nick_change(user,newnick)
                     break
         user.nick_change(user,newnick)
