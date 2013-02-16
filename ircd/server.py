@@ -187,9 +187,8 @@ class Server(dispatcher):
         self.pingtimeout = 60 * 5
         self.ping_retry = 2
         
-        self.whitelist = [
-            'marcusw','\01action\01'
-            ]
+        self.whitelist = []
+        
         try:
             self.load_wl()
         except:
@@ -248,16 +247,16 @@ class Server(dispatcher):
    
         onion = user.nick.endswith('.onion')
         self.dbg('privmsg %s -> %s -- %s'%(user.nick,dest,util.filter_unicode(msg)))
+        if dest.endswith('serv'):
+            d = dest.lower().split('serv')[0]
+            if not self.has_service(d):
+                user.privmsg(dest,'no such service')
+                return
+            self.service[d].serve(self,user,msg)
+            return 
         if (dest[0] in ['&','#'] and not self._has_channel(dest)) or (dest[0] not in ['&','#'] and dest not in self.users):
             user.send_num(401,'%s :No such nick/channel'%dest)
             return
-        if dest.endswith('serv'):
-            dest = dest.lower().split('serv')[0]
-            if not self.has_service(dest):
-                user.privmsg(dest,'no such service')
-                return
-            self.service[dest].serve(self,user,msg)
-            return 
         if dest[0] in ['#','&']:
             dest =  dest.lower()
             if dest in user.chans:
@@ -270,10 +269,6 @@ class Server(dispatcher):
         if self.admin is not None:
             self.admin.privmsg(self.service['admin'],'no longer oper')
         self.admin = user
-        def new_close():
-            User.handle_close(self.admin)
-            self.admin = None
-        self.admin.handle_close = new_close
         self.admin.privmsg(self.service['admin'],'you are now oper ;3')
 
     def send_global(self,msg):
@@ -369,6 +364,7 @@ class Server(dispatcher):
     
     def send_admin(self,msg):
         for line in str(msg).split('\n'):
+            print ('ADMIN: ',line)
             if self.admin is None:
                 self.admin_backlog.append(msg)
             else:

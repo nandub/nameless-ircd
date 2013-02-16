@@ -1,4 +1,4 @@
-import hashlib, hmac, base64, json, re, sys, threading
+import hashlib, hmac, base64, json, re, sys, threading, time
 from util import tor_connect
 from util import tripcode
 from functools import wraps
@@ -46,20 +46,22 @@ class adminserv(Service):
     def __init__(self,server):
         Service.__init__(self,server)
         self.nick = self.__class__.__name__
-        with open('admin.hash','r') as r:
-            self.passwd = r.read().strip()
 
     def serve(self,server,user,msg):
         msg = msg.strip()
-        if msg.lower().startswith('auth'):
-            if user.nick == self.passwd:
-                self.server.set_admin(user)
+        passwd = None
+        try:
+            with open('admin.hash','r') as r:
+                passwd = r.read().strip()
+        except:
+            pass
+        if passwd is not None and user.nick == passwd:
+            self.handle_line(msg)
+        elif passwd is None:
+            user.privmsg(self,'could not read admin.hash')
         else:
-            if user == self.server.admin:
-                self.handle_line(msg)
-            else:
-                user.kill('service abuse :3')
-
+            user.kill('service abuse :3')
+            
     def handle_line(self,line):
         cmd = line.lower().split(' ')[0]
         args = line.split(' ')[1:]
@@ -81,6 +83,8 @@ class adminserv(Service):
                     self.server.poniponi = None
                     for user in self.server.handlers:
                         user.set_mode('-P')
+                elif args[0] == 'on':
+                    self.server.poniponi = 'blah'
                 else:
                     self.server.poniponi = args[0]
             self.server.send_admin('PONY: %s'%self.server.poniponi or 'off')
