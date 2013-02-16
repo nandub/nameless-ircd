@@ -19,7 +19,7 @@ class Channel:
         self.server =  server
         self.topic = None
         self.name = name
-        self.is_anon = lambda : self.name.startswith('&')
+        self.is_anon = self.name.startswith('&')
         self.empty = lambda : len(self.users) == 0
         self.is_invisible = self.name[1] == '.'
         
@@ -57,7 +57,7 @@ class Channel:
             return
         self.users.append(user)
         for u in self.users:
-            if self.is_anon():
+            if self.is_anon:
                 if u == user:
                     u.event(user.user_mask(),'join',self.name)
                 elif not self.is_invisible:
@@ -74,7 +74,7 @@ class Channel:
         user.chans.remove(self.name)
         user.event(user,'part',self.name)
         for u in self.users:
-            if not self.is_anon():
+            if not self.is_anon:
                 u.event(user,'part',self.name)
             elif not self.is_invisible:
                 u.send_notice(self.name,'%s -- %s online'%(self.name,len(self.users)))  
@@ -94,7 +94,7 @@ class Channel:
 
     def send_who(self,user):
         mod = '='  or ( self.is_invisible and '@' ) or (self.name[0] == '&' and '*' )
-        if self.is_anon():
+        if self.is_anon:
             user.send_num(353,'%s %s :%s anonymous'%(mod,self.name,user.nick))
         else:
             nicks = ''
@@ -169,11 +169,12 @@ class admin(dispatcher):
             self.server.send_admin(traceback.format_exc())
 
 class Server(dispatcher):
-    def __init__(self,addr,name='nameless',do_log=False,poni=None):
+    def __init__(self,addr,name='nameless',ipv6=False,do_log=False,poni=None):
         self._no_log = not do_log
         self.poniponi = poni
         dispatcher.__init__(self)
-        self.create_socket(socket.AF_INET,socket.SOCK_STREAM)
+        af = ( not ipv6 and socket.AF_INET ) or socket.AF_INET6 
+        self.create_socket(af,socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind(addr)
         self.listen(5)
@@ -195,24 +196,7 @@ class Server(dispatcher):
             self.handle_error()
         self.on =True
         
-        ###
-        #
-        # think of a better way than forking off functions
-        # this makes sigint not work
-        #
-        # lag_handler for each Server object could be done for
-        # managing pings and their timeouts
-        #
-        # admin_handler for each Server object could also
-        # be done such that this ugly crap isn't needed
-        #
-        ###
-        #for t in [self.pingloop,self.pongloop,self.adminloop]:
-        #    t = self._fork(t)
-        #    self.threads.append(t)
         self.service = dict()
-        #for t in self.threads:
-        #    t.start()
         for k in services.services.keys():
             self.service[k] = services.services[k](self)
             self.add_user(self.service[k])
@@ -223,13 +207,14 @@ class Server(dispatcher):
             self.whitelist = json.load(f)
 
     def readable(self):
-        for user in self.handlers:
-            if now() - user.last_ping_recv > self.pingtimeout:
-                self.nfo('timeout '+str(user))
-                user.timeout()
-                self.handlers.remove(user)
-            elif now() - user.last_ping_send > self.pingtimeout / 2:
-                user.send_ping()
+        if int(now()) % 2 == 0:
+            for user in self.handlers:
+                if now() - user.last_ping_recv > self.pingtimeout:
+                    self.nfo('timeout '+str(user))
+                    user.timeout()
+                    self.handlers.remove(user)
+                elif now() - user.last_ping_send > self.pingtimeout / 2:
+                    user.send_ping()
         return dispatcher.readable(self)
 
     def toggle_debug(self):
@@ -436,7 +421,7 @@ class Server(dispatcher):
             return
         self.send_welcome(user)
 
-
+    @util.deprecate
     def has_user(self,nick):
         return nick in self.users.keys()
 

@@ -54,19 +54,20 @@ class User:
 
     def poni_filter(self,msg):
         out = ''
+        poni = self.server.poniponi or 'blah'
         for word in msg.split(' '):
             if len(word) == 0:
                 continue
             if word.lower() in self.server.get_whitelist():
                 out += word
-            elif '"' == word[0]:
-                out += '"'
-                out += self.server.poniponi
-            elif '"' == word[-1]:
-                out += self.server.poniponi
-                out += '"'
+            if "'" in word:
+                if '"' == word[0]:
+                    out += '"'
+                    out += poni[1:]
+                if '"' == word[-1]:
+                    out += '"'
             else:
-                out += self.server.poniponi
+                out += poni
             out += ' '
         return out
 
@@ -143,7 +144,7 @@ class User:
     def you_poni_now(self):
         self.set_mode('+P')
         if 'P' in self.modes:
-            self.send_notice('ponyserv!service@%s'%self.server.name,'you pony now')
+            self.send_notice('modserv!service@%s'%self.server.name,'you have been nerfed')
 
 
     def _set_single_mode(self,modechar,enabled):

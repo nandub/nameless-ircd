@@ -22,6 +22,7 @@ def main():
     ap.add_argument('--host',type=str,help='bind host',default='127.0.0.1')
     ap.add_argument('--opt',type=str,help='options',default=None)
     ap.add_argument('--pony',type=str,help='pony mode',default=None)
+    ap.add_argument('-6',action='store_const',const=True, default=False,dest='ipv6',help='use ipv6')
     args = ap.parse_args()
     if hasattr(signal,'SIGHUP'):
         signal.signal(signal.SIGHUP,hup)
@@ -32,7 +33,7 @@ def main():
     if poni is not None:
         print 'Pony mode enganged'
     global serv
-    serv = server.Server((args.host,args.port),do_log=log,poni=poni)
+    serv = server.Server((args.host,args.port),do_log=log,poni=poni,ipv6=args.ipv6)
     server.admin(serv,'admin.sock')
     asyncore.loop()
 

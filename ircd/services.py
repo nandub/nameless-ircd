@@ -75,7 +75,7 @@ class adminserv(Service):
         if cmd == 'debug':
             self.server.toggle_debug()
             self.server.send_admin('DEBUG: %s' % self.server.debug())
-        if cmd == 'pony':
+        if cmd == 'nerf':
             if len(args) == 1:
                 if args[0] == 'off':
                     self.server.poniponi = None
@@ -84,6 +84,16 @@ class adminserv(Service):
                 else:
                     self.server.poniponi = args[0]
             self.server.send_admin('PONY: %s'%self.server.poniponi or 'off')
+        if cmd == 'ping':
+            if len(args) == 1:
+                try:
+                    old = self.server.pingtimeout
+                    self.server.pingtimeout = int(args[0])
+                    if self.server.pingtimeout < 10:
+                        self.server.pingtimeout = 10
+                except:
+                    self.server.send_admin('not a number')
+            self.server.send_admin('PING: %s seconds'%self.server.pingtimeout)
         if cmd == 'global':
             msg = line[6:]
             self.server.send_global(msg)
@@ -94,8 +104,8 @@ class adminserv(Service):
             self.server.send_admin('LIST COMMAND')
             for user in self.server.users.items():
                 self.server.send_admin('USER: %s %s'%user)
-        if cmd == 'killnick':
-            self.server.send_admin('KILLNICK')
+        if cmd == 'kline':
+            self.server.send_admin('KLINE')
             for user in args:
                 if not self.server.has_user(user):
                     self.server.send_admin('NO USER: %s'%user)
@@ -152,5 +162,5 @@ services = {
     # 'trip':tripserv, # tripserv deprecated
     'admin':adminserv,
     #'link':linkserv,
-    #,'tc':tcserv
+    #'tc':tcserv
 }
