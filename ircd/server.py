@@ -86,7 +86,7 @@ class Channel:
             if user == orig:
                 continue
             src = 'anonymous!anon@%s'%self.server.name
-            if not self.is_anon():
+            if not self.is_anon:
                 src = '%s!anon@%s'%(orig.nick,self.server.name)
                 if user == orig:
                     src = orig.user_mask()
@@ -206,15 +206,16 @@ class Server(dispatcher):
             self.whitelist = json.load(f)
 
     def readable(self):
-        if int(now()) % 2 == 0:
+        tnow = int(now())
+        if tnow % 2 == 0:
             for user in self.handlers:
-                if now() - user.last_ping_recv > self.pingtimeout:
+                if ntnow - user.last_ping_recv > self.pingtimeout:
                     self.nfo('timeout '+str(user))
                     user.timeout()
                     self.handlers.remove(user)
-                elif now() - user.last_ping_send > self.pingtimeout / 2:
+                elif tnow - user.last_ping_send > self.pingtimeout / 2:
                     user.send_ping()
-        return dispatcher.readable(self)
+        return True
 
     def toggle_debug(self):
         self._no_log = not self._no_log
