@@ -186,9 +186,9 @@ class Server(dispatcher):
         self.users = dict()
         self.pingtimeout = 60 * 5
         self.ping_retry = 2
-        
+        self._check_ping = True
         self.whitelist = []
-        
+        self._check = True
         try:
             self.load_wl()
         except:
@@ -208,13 +208,17 @@ class Server(dispatcher):
     def readable(self):
         tnow = int(now())
         if tnow % 2 == 0:
+            
             for user in self.handlers:
                 if tnow - user.last_ping_recv > self.pingtimeout:
                     self.nfo('timeout '+str(user))
                     user.timeout()
                     self.handlers.remove(user)
+                    if user.nick in self.users:
+                        self.users.pop(user.nick)
                 elif tnow - user.last_ping_send > self.pingtimeout / 2:
                     user.send_ping()
+
         return True
 
     def toggle_debug(self):
