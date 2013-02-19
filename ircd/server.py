@@ -121,12 +121,8 @@ class _user(async_chat):
         self.got_line(b)
 
     def send_msg(self,msg):
-        for c in msg:
-            if ord(c) > 128:
-                self.push(msg+'\r\n')
-                return
+        msg = util.filer_unicode(msg)
         self.unicode_send_msg(msg.encode('ascii'))
-                
         
     def unicode_send_msg(self,msg):
         self.push(msg+'\r\n')
@@ -206,16 +202,14 @@ class Server(dispatcher):
             self.whitelist = json.load(f)
 
     def readable(self):
-        tnow = int(now())
+        tnow = int(now()/5)
         if tnow % 2 == 0:
             
             for user in self.handlers:
                 if tnow - user.last_ping_recv > self.pingtimeout:
                     self.nfo('timeout '+str(user))
-                    user.timeout()
+                    self.close_user(user)
                     self.handlers.remove(user)
-                    if user.nick in self.users:
-                        self.users.pop(user.nick)
                 elif tnow - user.last_ping_send > self.pingtimeout / 2:
                     user.send_ping()
 
