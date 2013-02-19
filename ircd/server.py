@@ -121,7 +121,7 @@ class _user(async_chat):
         self.got_line(b)
 
     def send_msg(self,msg):
-        msg = util.filer_unicode(msg)
+        msg = util.filter_unicode(msg)
         self.unicode_send_msg(msg.encode('ascii'))
         
     def unicode_send_msg(self,msg):
