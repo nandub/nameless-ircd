@@ -5,7 +5,9 @@ import base64, os
 
 
 class modes:
-
+    '''
+    channel mode object
+    '''
     def __init__(self):
         self._modes = {}
 
@@ -25,6 +27,9 @@ class modes:
         return self._modes.__iter__()
 
 class User:
+    '''
+    Abstract user object
+    '''
     def __init__(self,server):
         self.after_motd = None
         self.last_ping_recv = now()
@@ -50,9 +55,15 @@ class User:
 
 
     def send_notice(self,src,msg):
+        '''
+        send notice from source src with contents msg
+        '''
         self.action(src,'notice',msg)
 
     def poni_filter(self,msg):
+        '''
+        make filtered message for +P
+        '''
         out = ''
         poni = self.server.poniponi or 'blah'
         for word in msg.split(' '):
@@ -72,16 +83,27 @@ class User:
         return out
 
     def privmsg(self,src,msg,dst=None):
+        '''
+        recieve private message from source src with contents msg
+        if dst is not None the destination is a channel
+        '''
         if 'P' in self.modes and dst is not None:
             msg = self.poni_filter(msg)
         self.action(src,'privmsg',msg,dst=dst)
 
     def action(self,src,type,msg,dst=None):
+        '''
+        send an event from src with type type with contents msg from dst
+        '''
         if dst is None:
             dst = self
         self.send_raw(':%s %s %s :'%(src, type.upper(),dst)+msg)
 
     def close_user(self):
+        '''
+        do not call directly
+        use Server.close_user(user) instead
+        '''
         self.dbg('%s closing connection'%self)
         for chan in self.chans:
             self.part_chan(chan)
@@ -89,9 +111,15 @@ class User:
             self.server.users.pop(self.nick)
 
     def event(self,src,type,msg):
+        '''
+        send event from src of type type with contents msg
+        '''
         self.send_raw(':%s %s :'%(src,type.upper())+msg)
 
     def send_raw(self,data):
+        '''
+        send a raw line
+        '''
         if not 'u' in self.modes:
             data = util.filter_unicode(data)
         self.dbg('[%s]Send %s'%(self.host,data))
@@ -101,37 +129,62 @@ class User:
             self.handle_error()
 
     def user_mask(self):
+        '''
+        user mask in form nick!user@server
+        '''
         return '%s!anon@%s' %(self.nick,self.server.name)
 
     def kill(self,reason):
+        '''
+        do not call directly
+        use Server.kill(user,reason) instead
+        '''
         self.send_notice(self.server.name,'KILLED: %s'%reason)
         self.server.close_user(self)
 
     def on_pong(self,pong):
+        '''
+        called when we recieve a pong
+        '''
         self.last_ping_recv = now()
 
     def on_ping(self,ping):
+        '''
+        called when we recieve a ping
+        '''
         ping = ping.split(' ')[0]
         self.send_raw(':%s PONG %s :'%(self.server.name,self.server.name)+ping)
         self.last_ping_recv = now()
 
     def send_ping(self):
+        '''
+        send out a ping
+        '''
         self.last_ping_send = now()
-        self.send_raw('PING nameless')
+        self.send_raw('PING '+self.server.name)
 
 
     def join_chan(self,chan):
+        '''
+        join a channel
+        '''
         chan = chan.lower()
         if chan in self.chans:
             return
         self.server.join_channel(self,chan)
 
     def part_chan(self,chan):
+        '''
+        part a channel
+        '''
         chan = chan.lower()
         if chan in self.chans:
             self.server.part_channel(self,chan)
 
     def topic(self,channame,msg):
+        '''
+        called when TOPIC is recieved
+        '''
         channame = channame.lower()
         if channame not in self.server.chans:
             return
@@ -142,6 +195,10 @@ class User:
             chan.send_topic_to_user(self)
 
     def you_poni_now(self):
+        '''
+        set mode +P
+        inform user
+        '''
         self.set_mode('+P')
         if 'P' in self.modes:
             self.send_notice('modserv!service@%s'%self.server.name,'you have been nerfed')
@@ -156,6 +213,9 @@ class User:
             self.send_raw(':%s MODE %s :-%s'%(self.nick,self.nick,modechar))
     
     def set_mode(self,modestring):
+        '''
+        set mode given a modestring
+        '''
         state = None #true for +, false for -
         for c in modestring:
             if c == '+':
@@ -168,6 +228,9 @@ class User:
                 self.send_num(501, ':Unknown MODE flag')
 
     def timeout(self):
+        '''
+        call to time out the user and disconnect them
+        '''
         self.server.close_user(self)
 
     def _rand_nick(self,l):
@@ -177,9 +240,15 @@ class User:
         return nick
 
     def send_num(self,num,data):
+        '''
+        send a response that contains a status number
+        '''
         self.send_raw(':%s %s %s %s'%(self.server.name,num,self.nick,data))
 
     def do_nickname(self,nick):
+        '''
+        do not call directly
+        '''
         if '#' in nick:
             nick = nick.strip()
             i = nick.index('#')
@@ -194,6 +263,9 @@ class User:
         return self._rand_nick(6)
 
     def got_line(self,inbuffer):
+        '''
+        called when the user recieves a line
+        '''
         self.dbg('got line '+inbuffer)
         p = inbuffer.split(' ')
         l = len(p)
@@ -283,6 +355,9 @@ class User:
             self.server.send_list(self)
 
     def nick_change(self,user,newnick):
+        '''
+        called when user changes their nickname to newnick
+        '''
         if user == self:
             data = ':%s NICK %s'%(user,newnick)
         else:
@@ -290,6 +365,9 @@ class User:
         self.send_raw(data)
 
     def send_msg(self,data):
+        '''
+        place holder for sending data
+        '''
         pass
 
 
