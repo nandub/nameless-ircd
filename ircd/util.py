@@ -41,7 +41,7 @@ def socks_connect(host,port,socks_host):
 def filter_unicode(data):
     # for marcusw's utf-8 allergies
     ret = ''
-    for c in data:
+    for c in str(data):
         if ord(c) > 128:
             ret += '?'
         else:
