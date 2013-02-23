@@ -115,6 +115,8 @@ class _user(async_chat):
         async_chat.__init__(self,sock)
         self.set_terminator('\r\n')
         self.buffer = ''
+        self.lines = {}
+        self.limit = 10
 
     def collect_incoming_data(self,data):
         self.buffer += data
@@ -124,6 +126,19 @@ class _user(async_chat):
     def found_terminator(self):
         b = self.buffer
         self.buffer = ''
+        # flood control
+        t = int(now())
+        if t in self.lines:
+            self.lines[t] += 1
+            if self.lines[t] > self.limit:
+                if hasattr(self,'kill'):
+                    self.kill('auto flood kill')
+                else:
+                    self.close()
+        else:
+            self.lines[t] = 1
+        if len(self.lines) > 5:
+            self.lines = {}
         self.got_line(b)
 
     def send_msg(self,msg):
