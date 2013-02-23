@@ -161,7 +161,7 @@ class _user(async_chat):
         self.set_terminator('\r\n')
         self.buffer = ''
         self.lines = {}
-        self.limit = 10
+        self.limit = 1000
 
     def collect_incoming_data(self,data):
         
@@ -177,16 +177,14 @@ class _user(async_chat):
         b = self.buffer
         self.buffer = ''
         # flood control
-        t = int(now())
+        t = int(now() / 30)
         if t in self.lines:
-            self.lines[t] += 1
+            self.lines[t] += len(b)
+            print self.lines[t], t
             if self.lines[t] > self.limit:
-                if hasattr(self,'kill'):
-                    self.kill('auto flood kill')
-                else:
-                    self.close()
+                self.server.kill(self,'auto flood kill')
         else:
-            self.lines[t] = 1
+            self.lines[t] = len(b)
         if len(self.lines) > 5:
             self.lines = {}
         # inform got line
@@ -505,6 +503,7 @@ class Server(dispatcher):
             user.close_user()
             if user in self.handlers:
                 self.handlers.remove(user)
+            user.close()
             del user
         except:
             self.err(traceback.format_exc())

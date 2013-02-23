@@ -111,10 +111,10 @@ class adminserv(Service):
         if cmd == 'kline':
             self.server.send_admin('KLINE')
             for user in args:
-                if user.nick not in self.server.users:
+                if user not in self.server.users:
                     self.server.send_admin('NO USER: %s'%user)
                 user = self.server.users[user]
-                user.kill('killed')
+                self.server.kill(user,'killed')
                 self.server.send_admin('KILLED %s'%user)
 
 
