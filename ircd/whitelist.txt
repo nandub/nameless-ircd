@@ -1,0 +1,9 @@
+[
+            "marcusw","\\u0001action\\u0001","bro",
+            "waifu","nameless","irc",
+            "i2p",":3",":D","and","or",
+            "the","maybe", "lol", "rofl",
+            "motd","read","topic","<3",
+            "to","a","be","but", "no","i","indeed",
+            "not"
+]

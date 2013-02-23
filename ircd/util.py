@@ -1,4 +1,7 @@
+# -*- coding: utf-8 -*-
+
 import base64, hashlib, os, hmac
+from functools import wraps
 def _tripcode(data,salt):
     code = ''
     for digest in ['sha512','sha256']:
@@ -49,6 +52,13 @@ _salt = 'salt'
 if os.path.exists('salt'):
     with open('salt') as s:
        _salt = s.read()
+
+
+def deprecate(f):
+    @wraps(f)
+    def w(*args,**kwds):
+        raise Exception('Attempted to call Deprecated function %s'%f.func_name)
+    return w
 
 tripcode = lambda nick, trip : _tripcode(nick+'|'+trip,_salt)
 i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))
