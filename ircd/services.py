@@ -85,7 +85,7 @@ class adminserv(Service):
             self.server.send_admin('LIST COMMAND')
             for user in self.server.users.items():
                 self.server.send_admin('USER: %s %s'%user)
-        if cmd == 'killnick':
+        if cmd == 'kline':
             self.server.send_admin('KILLNICK')
             for user in args:
                 if user.nick not self.server.users:
