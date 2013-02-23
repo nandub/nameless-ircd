@@ -142,7 +142,6 @@ class _user(async_chat):
         self.got_line(b)
 
     def send_msg(self,msg):
-        msg = util.filter_unicode(msg)
         self.push(msg+'\r\n')
 
 
