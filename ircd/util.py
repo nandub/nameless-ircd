@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import base64, hashlib, os, hmac
+import base64, hashlib, os, hmac, functools, inspect
 from functools import wraps
 def _tripcode(data,salt):
     code = ''
@@ -15,6 +15,10 @@ def _tripcode(data,salt):
     h.update(code)
     code = h.digest()
     return base64.b32encode(code).replace('=','')
+
+def get_admin_hash():
+    with open('admin.hash') as r:
+        return r.read().strip()
 
 def socks_connect(host,port,socks_host):
     s = socket.socket()
@@ -59,6 +63,31 @@ def deprecate(f):
     def w(*args,**kwds):
         raise Exception('Attempted to call Deprecated function %s'%f.func_name)
     return w
+
+def decorate(func): 
+    def isFuncArg(*args, **kw):
+        return len(args) == 1 and len(kw) == 0 and (inspect.isfunction(args[0]) or isinstance(args[0], type))
+    
+    if isinstance(func, type):
+        def class_wrapper(*args, **kw):
+            if isFuncArg(*args, **kw):
+                return func()(*args, **kw) # create class before usage
+            return func(*args, **kw)
+        class_wrapper.__name__ = func.__name__
+        class_wrapper.__module__ = func.__module__
+        return class_wrapper
+   
+    @wraps(func)
+    def func_wrapper(*args, **kw):
+        if isFuncArg(*args, **kw):
+            return func(*args, **kw)
+        
+        def functor(userFunc):
+            return func(userFunc, *args, **kw)
+           
+        return functor
+   
+    return func_wrapper
 
 tripcode = lambda nick, trip : _tripcode(nick+'|'+trip,_salt)
 i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))

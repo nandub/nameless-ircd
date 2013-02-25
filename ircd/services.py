@@ -2,23 +2,28 @@ import hashlib, hmac, base64, json, re, sys, threading, time
 from util import tor_connect
 from util import tripcode
 from functools import wraps
-
+import util, base
 
 
 def admin(f):
     @wraps(f)
-    def func(server,user,msg):
-        if user != server.admin:
-            user.kill('service abuse ;3')
+    def func(*args,**kwds):
+        user = args[2]
+        server = args[1]
+        if user.nick != util.get_admin_hash():
+            server.kill(user,'service abuse ;3')
         else:
-            f(sever,user,msg)
+            f(*args,**kwds)
     return func
 
-class Service:
-    def __init__(self,server):
-        self.server = server
+class Service(base.BaseObject):
+    def __init__(self,server,config={}):
+        base.BaseObject.__init__(self,server)
         self._log = server._log
         self.last_ping_recv = -1
+        self.is_service = True
+        self.config = config
+        self.cmds = {}
 
     def send_num(self,num,raw):
         pass
@@ -32,94 +37,140 @@ class Service:
     def timeout(self):
         pass
 
-    def serve(self,server,user,msg):
-        raise NotImplemented()
+    def privmsg(self,user,msg):
+        hook = lambda msg : user.privmsg(self,msg)
+        self.serve(self.server,user,msg,hook)
+
+    def serve(self,server,user,msg,resp_hook):
+        cmd = msg.lower().split(' ')[0]
+        args = msg.split(' ')[1:]
+        if cmd in self.cmds:
+            self.cmds[cmd](args,resp_hook)
+        else:
+            resp_hook('no such command: '+str(cmd))
 
     def dbg(self,msg):
         self._log('DBG',msg)
 
+    def attempt(self,func,resp_hook):
+        try:
+            func()
+        except:
+            for line in traceback.format_exc().split('\n'):
+                resp_hook(line)
+            return False
+        else:
+            return True
+
     def __str__(self):
-        return self.__class__.__name__
+        return self.get_full_name()
 
 class adminserv(Service):
     
-    def __init__(self,server):
-        Service.__init__(self,server)
+    def __init__(self,server,config={}):
+        Service.__init__(self,server,config=config)
         self.nick = self.__class__.__name__
+        self.cmds = {
+            'debug':self.toggle_debug,
+            'denerf':self.denerf_user,
+            'nerf':self.nerf_user,
+            'nerf_all':self.nerf_all,
+            'denerf_all':self.denerf_all,
+            'ping':self.set_ping,
+            'global':self.send_global,
+            'count':self.count_users,
+            'list':self.list_users,
+            'kline':self.kline,
+            'help':self.send_help
+            }
 
-    def serve(self,server,user,msg):
-        msg = msg.strip()
-        passwd = None
-        try:
-            with open('admin.hash','r') as r:
-                passwd = r.read().strip()
-        except:
-            pass
-        if passwd is not None and user.nick == passwd:
-            self.handle_line(msg)
-        elif passwd is None:
-            user.privmsg(self,'could not read admin.hash')
-        else:
-            user.kill('service abuse :3')
-            
     def handle_line(self,line):
-        cmd = line.lower().split(' ')[0]
-        args = line.split(' ')[1:]
-        if cmd == 'die':
-            self.server.send_admin('server will die in 5 seconds')
-            def die():
-                n = 5
-                for i in range(n):
-                    self.server.send_global('server death in '+str(n-i))
-                    time.sleep(1)
-                sys.exit(0)
-            threading.Thread(target=die,args=()).start()
-        if cmd == 'debug':
-            self.server.toggle_debug()
-            self.server.send_admin('DEBUG: %s' % self.server.debug())
-        if cmd == 'nerf':
-            if len(args) == 1:
-                if args[0] == 'off':
-                    self.server.poniponi = None
-                    for user in self.server.handlers:
-                        user.set_mode('-P')
-                elif args[0] == 'on':
-                    self.server.poniponi = 'blah'
-                else:
-                    self.server.poniponi = args[0]
-            self.server.send_admin('PONY: %s'%self.server.poniponi or 'off')
-        if cmd == 'ping':
-            if len(args) == 1:
-                try:
-                    old = self.server.pingtimeout
-                    self.server.pingtimeout = int(args[0])
-                    if self.server.pingtimeout < 10:
-                        self.server.pingtimeout = 10
-                except:
-                    self.server.send_admin('not a number')
-            self.server.send_admin('PING: %s seconds'%self.server.pingtimeout)
-        if cmd == 'global':
-            msg = line[6:]
-            self.server.send_global(msg)
-            self.server.send_admin('GLOBAL: %s'%msg)
-        if cmd == 'count':
-            self.server.send_admin('%d Users connected'%len(self.server.users.items()))
-        if cmd == 'list':
-            self.server.send_admin('LIST COMMAND')
-            for user in self.server.users.items():
-                self.server.send_admin('USER: %s %s'%user)
-        if cmd == 'kline':
-            self.server.send_admin('KLINE')
-            for user in args:
-                if user not in self.server.users:
-                    self.server.send_admin('NO USER: %s'%user)
-                user = self.server.users[user]
-                self.server.kill(user,'killed')
-                self.server.send_admin('KILLED %s'%user)
+        class dummy:
+            def __init__(self):
+                self.nick = util.get_admin_hash()
+            def privmsg(self,*args,**kwds):
+                pass
+        self.privmsg(dummy(),line)
+
+    @admin
+    def serve(self,server,user,line,resp_hook):
+        Service.serve(self,server,user,line,resp_hook)
+
+    def send_help(self,args,resp_hook):
+        resp_hook('commands:')
+        for cmd in self.cmds:
+            resp_hook('- '+cmd)
+
+    def toggle_debug(self,args,resp_hook):
+        self.server.toggle_debug()
+        resp_hook('DEBUG: %s' % self.server.debug())
+
+    def nerf_user(self,args,resp_hook):
+        for u in args:
+            if u in self.server.users:
+                u = self.server.users[u]
+                u.set_mode('+P')
+                u.lock_modes()
+                resp_hook('set mode +P on '+u.nick)
+    def denerf_user(self,args,resp_hook):
+        for u in args:
+            if u in self.server.users:
+                u = self.server.users[u]
+                u.set_mode('-P')
+                u.unlock_modes()
+                resp_hook('set mode -P on '+u.nick)
+
+    def nerf_all(self,args,resp_hook):
+        self.server.send_global('Global +P Usermode Set')
+        for u in self.server.handlers:
+            u.set_mode('+P')
+            u.lock_modes()
+        resp_hook('GLOBAL +P')
+
+    def denerf_all(self,args,resp_hook):
+        self.server.send_global('Global -P Usermode Set')
+        for u in self.server.handlers:
+            u.unlock_modes()
+            u.set_mode('-P')
+        resp_hook('GLOBAL -P')
+
+    def set_ping(self,args,resp_hook):
+        server = self.server
+        if len(args) == 1:
+            try:
+                old = server.pingtimeout
+                server.pingtimeout = int(args[0])
+                if server.pingtimeout < 10:
+                    server.pingtimeout = 10
+            except:
+                resp_hook('not a number')
+        resp_hook('PING: %s seconds'%server.pingtimeout)
+
+    def send_global(self,args,resp_hook):
+        msg = ' '.join(args)
+        self.server.send_global(msg)
+        resp_hook('GLOBAL: %s'%msg)
+    
+    def count_users(self,args,resp_hook):
+        resp_hook('%d Users connected'%len(self.server.users.items()))
+        
+    def list_users(self,args,resp_hook):
+        resp_hook('LIST COMMAND')
+        for user in self.server.users:
+            resp_hook('USER:'+str(user))
+
+    def kline(self,args,resp_hook):
+        resp_hook('KLINE')
+        for u in args:
+            if u not in self.server.users:
+                resp_hook('NO USER: '+str(u))
+            u= server.users[u]
+            u.kill('kline')
+            resp_hook('KILLED '+str(u))
 
 
 class tripserv(Service):
-
+    @util.deprecate
     def __init__(self,server):
         Service.__init__(self,server)
         self.nick = self.__class__.__name__
@@ -161,10 +212,10 @@ class tripserv(Service):
         self.server.change_nick(user,'%s|%s'%(name,trip))
 
 # from tcserv import tcserv
-# from linkserv import linkserv
+from linkserv import linkserv
 services = {
-    # 'trip':tripserv, # tripserv deprecated
-    'admin':adminserv,
-    #'link':linkserv,
-    #'tc':tcserv
+    #'tripserv':tripserv, # tripserv deprecated
+    'adminserv':adminserv,
+    'linkserv':linkserv,
+    #'tcserv':tcserv
 }

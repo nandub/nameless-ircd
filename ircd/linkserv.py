@@ -3,8 +3,8 @@ from user import User
 from util import socks_connect
 from asynchat import async_chat
 from asyncore import dispatcher
-import json,socket,os,base64,threading,struct
-import link_protocol
+import json,socket,os,base64,threading,struct,traceback, time
+import link_protocol, util
 
 class listener(dispatcher):
     
@@ -43,14 +43,16 @@ class link(async_chat):
         self.ibuffer = ''
         self.state = 0
         self.name = name
+        self.syncing = False
         self.dbg = lambda m : self.parent.dbg('link-%s %s'%(self.name,m))
         self.handle_error = self.server.handle_error
         self.init()
 
-
+    @util.deprecate
     def sign(self,data):
         return link_protocol.sign(data)
 
+    @util.deprecate
     def verify(self,data,sig):
         try:
             link_protocol.verify(data,sig)
@@ -65,8 +67,10 @@ class link(async_chat):
 
     def send_msg(self,data):
         data['id'] = self.gen_id()
+        self.dbg('send '+str(data))
         data = json.dumps(data)
-        self.push(link_protocol.pack(data,self.sign(data)))
+        self.push(data)
+        self.push(link_protocol.delim)
         
     def collect_incoming_data(self,data):
         self.ibuffer += data
@@ -74,21 +78,20 @@ class link(async_chat):
     def found_terminator(self):
         data = self.ibuffer
         self.ibuffer = ''
-        data, sig = link_protocol.unpack(data)
-        data = self.verify(data,sig)
         if data is None:
             # drop unverifiable messages
             return 
         try:
             j = json.loads(data)
+            self.dbg('Got Messsge '+str(j))
         except:
             self.bad_fomat()
+            self.handle_error()
             return
         if 'error' in j:
             self.dbg('ERROR: %s'%j['error'])
             return
-        self.on_message(data)
-
+        self.on_message(j)
 
     def error(self,msg):
         self.dbg('error: %s'%msg)
@@ -98,14 +101,79 @@ class link(async_chat):
     def bad_format(self):
         self.error('bad format')
 
+    def request_sync(self):
+        self.send_msg({'sync':'sync'})
+        self.syncing = True
+
+    def parse_sync(self,data):
+        if 'sync' not in data:
+            return
+        if data['sync'] == 'done':
+            self.syncing = False
+            return
+        elif data['sync'] == 'sync':
+            self.send_sync()
+        else:
+            if 'chans' in data['sync']:
+                for chan in data['sync']['chans']:
+                    for attr in ['topic','name']:
+                        if attr not in chan:
+                            self.error('channel format')
+                            return
+                    if chan['name'][0] not in ['&','#']:
+                        self.error('channel format')
+                        return
+                    if chan['name'] not in self.server.chans:
+                        self.server.chans[chan['name']] = Chan(chan['name'],self.server)
+                        self.server.chans[chan['name']].set_topic(chan['topic'])
+            if 'users' in data['sync']:
+                for user in data['sync']['users']:
+                    for attr in ['nick','chans']:
+                        if attr not in user:
+                            self.error('user format')
+                            return
+                    if user['nick'] not in self.server.users:
+                        user = link_user(self,user['nick'])
+                        self.server.users[user.nick] = user
+                        for chan in user['chans']:
+                            self.server.join_channel(self.server.users[user['nick']],chan)
+
+
+
+
+    def send_sync(self):
+        users = self.server.users.values()
+        users = filter(lambda u : not u.nick.endswith('serv') , users)
+        usersent = []
+        for user in users:
+            usersent.append({ 'nick' : user.nick, 'chans' : user.chans })
+            
+        chansent = []
+        for chan in self.server.chans.values():
+            chansent.append({'name':chan.name,'topic':chan.topic})
+        self.send_msg({
+                'sync':{
+                    'chans':chansent,
+                    'users':usersent
+                    }
+                })
+        self.send_msg({'sync':'done'})
+
     def on_message(self,data):
         pass
 
     def init(self):
         pass
 
-    def parse_message(self,data,raw):
+    def parse_message(self,data):
         # you can totally replay stuff by the way
+
+        if 'sync' in data and data['sync'] == 'sync':
+            self.send_sync()
+            return
+        if self.syncing:
+            self.parse_sync(data)
+            return
         for e in ['data','event','dst','id']:
             if e not in data:
                 self.bad_format()
@@ -119,7 +187,7 @@ class link(async_chat):
         if not expunge:
             self.parent.forward(raw)
 
-    def got_message(self,event,data,dst,raw):
+    def got_message(self,event,data,dst):
         event = event.lower()
         if not hasattr(self,'_got_%s'%event):
             self.error('bad event')
@@ -150,16 +218,26 @@ class link_user(User):
         User.__init__(self,link.server)
         self.nick = nick
         self.usr = nick
+        self.backlog = []
         self.is_remote = True
     
     def send_msg(self,msg):
-        self.link.send_msg({'data':msg,'event':'raw','dst':str(self)})
+        if self.link.syncing:
+            self.backlog.append(msg)
+        else:
+            while len(self.backlog) > 0:
+                self.link.send_msg(self.backlog.pop())
+            self.link.send_msg({'data':msg,'event':'raw','dst':str(self)})
 
 class link_send(link):
 
     def init(self):
-        self.send_msg({'server':self.server.name,'login':self.parent.get_login(self.dest)})
-        self.state += 1
+        login = self.parent.get_login(self.name)
+        if login is not None:
+            self.send_msg({'server':self.server.name,'login':login})
+            self.state += 1
+        else:
+            self.error('no auth for '+str(self.dest))
 
     def on_message(self,data):
       
@@ -170,37 +248,8 @@ class link_send(link):
             if data['auth'].lower() == 'ok':
                 self.state += 1
         elif self.state == 2:
-            if 'sync' not in data:
-                self.error('bad sync')
-                return
-            if data['sync'] == 'done':
-                self.state += 1
-                return
-            else:
-                if 'chans' in data['sync']:
-                    for chan in data['sync']['chans']:
-                        for attr in ['topic','name']:
-                            if attr not in chan:
-                                self.error('channel format')
-                                return
-                        if chan['name'][0] not in ['&','#']:
-                            self.error('channel format')
-                            return
-                        if chan['name'] not in self.server.chans:
-                            self.server.chans[chan['name']] = Chan(chan['name'],self.server)
-                            self.server.chans[chan['name']].set_topic(chan['topic'])
-                if 'users' in data['sync']:
-                    for user in data['sync']['users']:
-                        for attr in ['nick','chans']:
-                            if attr not in user:
-                                self.error('user format')
-                                return
-                        if user['nick'] not in self.server.users:
-                            user = link_user(self,user['nick'])
-                            self.server.users[user.nick] = user
-                        for chan in user['chans']:
-                            self.server.join_channel(self.server.users[user['nick']],chan)
-
+            self.request_sync()
+            self.state += 1
         elif self.state == 3:
             self.parse_message(data)
 
@@ -216,85 +265,97 @@ class link_recv(link):
             if self.parent.check(data['server'],data['login']):
                 self.name = data['server']
                 self.parent.links.append(self)
-                self.servver.send_admin('server linked: %s'%self.name)
+                self.server.send_admin('server linked: %s'%self.name)
                 self.send_msg({'auth':'ok'})
-                # should be chunked
-                self.send_msg({
-                        'sync':{
-                            'chans':self.server.chans.keys(),
-                            'users':self.server.users.keys()
-                            }
-                        })
-                self.send_msg({'sync':'done'})
+                self.request_sync()
                 self.state += 1
             else:
                 self.error('bad auth')
-        if self.state == 1:
+        elif self.state == 1:
             self.parse_message(data)
-            
+
+
+
+
 class linkserv(Service):
     _yes =  ['y','yes','1','true']
-    def __init__(self,server,cfg_fname='linkserv.json'):
-        Service.__init__(self,server)
+    def __init__(self,server,config={}):
+        Service.__init__(self,server,config=config)
+        self.listener = None
         self.nick = 'linkserv'
         self.delim = link_protocol.delim
         self.links = []
-        self._cfg_fname = cfg_fname
+        if 'fname' in self.config:
+            self._cfg_fname = self.config['fname']
+        else:
+            self._cfg_fname = 'linkserv.json'
         self._lock = threading.Lock()
         self._unlock = self._lock.release
         self._lock = self._lock.acquire
-        j = self.get_cfg()
-        if 'autoconnect' in j and j['autoconnect'] in self._yes:
-            self.connect_all()
+        self.reload(self.dbg)
 
-    def forward(self,data):
+    def get_login(self,dest):
+        j =  self.get_cfg()
+        if 'links' in j and dest in j['links']:
+            return j['links'][dest]
+        return None
+    
+    def forward_data(self,data):
         for link in self.links:
             link.push(data)
             link.push(link_protocol.delim)
-        
+
+    def start_listener(self):
+        j = self.get_cfg()
+        if 'bindaddr' in j:
+            host,port = tuple(j['bindaddr'].split(':'))
+            self.bind_addr = (host,int(port))
+        else:
+            self.bind_addr = ('127.0.0.1', 9991)
+        if self.listener is not None:
+            self.listener.close()
+        self.listener = listener(self)
+
     @admin
-    def serve(self,server,user,msg):
+    def serve(self,server,user,msg,resp_hook):
         msg = msg.strip()
         p = msg.split(' ')
         if msg == 'list':
             self.list_links(user)
         elif msg == 'reload':
-            user.privmsg(self,'reloading...')
-            try:
-                self.reload()
-            except:
-                user.privmsg(self,'error reloading')
-                for line in traceback.format_exc().split('\n'):
-                    user.privmsg(self,line)
-            else:
-                user.privmsg(self,'reloaded')
+            resp_hook('reloading...')
+            if self.attempt(lambda : self.reload(resp_hook),resp_hook):
+                resp_hook('reloaded')
+        elif msg == 'link':
+            resp_hook('starting link')
+            if self.attempt(lambda : self.connect_all(resp_hook),resp_hook):
+                resp_hook('Done')
         elif msg == 'kill':
-            user.privmsg(self,'killing all links')
-            try:
-                self.kill_links()
-                self.wait_for_links_dead()
-            except:
-                user.privmsg(self,'error')
-                for line in traceback.format_exc().split('\n'):
-                    user.privmsg(self,line)
-            else:
-                user.privmsg(self,'killed')
+            resp_hook('killing all links')
+            if self.attempt(self.kill_links) and self.attempt(self.wait_for_links_dead):
+                resp_hook('killed links')
 
-    def list_links(self,user):
+    def list_links(self,hook):
         if len(self.links) == 0:
-            user.privmsg(self,'NO LINKS')
+            hook('NO LINKS')
         for link in self.links:
-            user.privmsg(self,'LINK: %s'%link.name)
+            hook('LINK: %s'%link.name)
                 
     def kill_links(self):
-        pass
+        while len(self.links) > 0:
+            self.links.pop().close()
 
     def wait_for_links_dead(self):
         pass
 
-    def reload(self):
-        pass
+    def reload(self,hook):
+        self.start_listener()
+        self.kill_links()
+        j = self.get_cfg()
+        if 'autoconnect' in j and str(j['autoconnect']) in self._yes:
+            self.connect_all(hook)
 
+    @util.deprecate
     def _fork(self,f):
         def func():
             try:
@@ -305,28 +366,32 @@ class linkserv(Service):
         threading.Thread(target=func,args=()).start()
 
 
-    def connect_all(self):
+    def connect_all(self,hook):
         j = self.get_cfg()
-
+        self.server.send_global('this server will freeze for syncing')
         def connect(link,login):
+            hook('connect '+str(link)+' '+str(login))
             if not link.startswith('127.'):
-                host,port = tup(j['tor'].split(':'))
+                host,port = tuple(j['tor'].split(':'))
                 if link.endswith('.i2p'):
-                    host,port = tup(j['i2p'].split(':'))
+                    host,port = tuple(j['i2p'].split(':'))
                 port = int(port)
                 sock, err = socks_connect(login,9999,(host,port))
             else:
                 sock = socket.socket()
-                sock.connect(link,9999)
+                host,port = tuple(link.split(':'))
+                sock.connect((host,int(port)))
                 err = None
             if err is not None:
-                self.server.send_admin('link error: %s %s'%(link,err))
+                hook('link error: %s %s'%(link,err))
             else:
-                self.server.send_admin('start link: %s'%link)
+                hook('start link: %s'%link)
                 link_send(sock,self,link)
 
         for link, login in j['links'].items():
-            self._fork(lambda: connect(link,login))
+            self.server.send_global('syncing')
+            connect(link,login)
+        self.server.send_global('server done syncing, have a nice day')
 
 
     def get_cfg(self):
@@ -345,15 +410,15 @@ class linkserv(Service):
 
     def check(self,server,login):
         j = self.get_cfg()
-        if dest not in j['links']:
+        if server not in j['links']:
             if 'allow_all' not in j:
                 return False
             elif str(j['allow_all']).lower() in self._yes :
-                j['links'][dest] = login
+                j['links'][server] = login
                 self.set_cfg(j)
-                return self.check(dest,data)
+                return self.check(server,login)
             else:
                 return False
-        return data == j['links'][dest]
+        return login == j['links'][server]
 
 

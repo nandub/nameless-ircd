@@ -1,6 +1,6 @@
 import struct, hmac
 
-delim = '\r\n.\r\n' 
+delim = '\n' 
 
 def sign(data):
     # this doesn't actually do anything useful yet

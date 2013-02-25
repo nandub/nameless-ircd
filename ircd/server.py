@@ -82,14 +82,14 @@ class Channel:
             if self.is_anon: # case is an anon channel
                 if u == user:
                     # send join to just the user for anon channel
-                    u.event(user.user_mask(),'join',self.name)
+                    u.event(str(user),'join',self.name)
                 elif not self.is_invisible: # case is a non invisible channel
                     # send increment to all users
                     u.send_notice(self,
                                   '%s -- %s online'%(self.name,len(self.users)))
             else: # case is a regular channel
                 # send join to everyone
-                u.event(user.user_mask(),'join',self.name)
+                u.event(str(user),'join',self.name)
         # send topic
         self.send_topic_to_user(user)
         # send who
@@ -100,11 +100,10 @@ class Channel:
         called when a user parts the channel
         '''
         # check for already in chanenel
-        if user in self.users:
-            # remove from lists
-            self.users.remove(user)
-        if self.name in user.chans:
-            user.chans.remove(self.name)
+        if user not in self.users:
+            return
+        # remove from lists
+        self.users.remove(user)
         # send part to user
         user.event(user,'part',self.name)
         # inform channel if needed
@@ -180,15 +179,17 @@ class _user(async_chat):
         t = int(now() / 30)
         if t in self.lines:
             self.lines[t] += len(b)
-            print self.lines[t], t
             if self.lines[t] > self.limit:
-                self.server.kill(self,'auto flood kill')
+                if hasattr(self,'kill'):
+                    self.kill('flood')
+                else:
+                    self.close()
         else:
             self.lines[t] = len(b)
         if len(self.lines) > 5:
             self.lines = {}
         # inform got line
-        self.got_line(b)
+        self.handle_line(b)
 
     def send_msg(self,msg):
         '''
@@ -197,9 +198,9 @@ class _user(async_chat):
         # filter unicode
         msg = util.filter_unicode(msg)
         # screw unicode :p
-        self.unicode_send_msg(msg.encode('ascii'))
+        self.ascii_send_msg(msg.encode('ascii'))
         
-    def unicode_send_msg(self,msg):
+    def ascii_send_msg(self,msg):
         '''
         push a line to be sent
         '''
@@ -255,7 +256,7 @@ class Server(dispatcher):
     '''
     main server object
     '''
-    def __init__(self,addr,name='nameless',ipv6=False,do_log=False,poni=None):
+    def __init__(self,addr,name='nameless',ipv6=False,do_log=False,poni=None,configs={}):
         self._no_log = not do_log
         self.poniponi = poni
         dispatcher.__init__(self)
@@ -264,6 +265,7 @@ class Server(dispatcher):
         self.set_reuse_addr()
         self.bind(addr)
         self.listen(5)
+        self.configs = configs
         self.admin_backlog = []
         self.handlers = []
         self.admin = None
@@ -274,18 +276,15 @@ class Server(dispatcher):
         self.ping_retry = 2
         self._check_ping = True
         self.whitelist = []
-        self._check = True
+        self._check_ping = True
         try:
             self.load_wl()
         except:
             self.handle_error()
         self.on =True
         
-        self.service = dict()
-        for k in services.services.keys():
-            self.service[k] = services.services[k](self)
-            self.add_user(self.service[k])
-
+        for k in self.configs:
+            self.on_new_user(services.services[k](self,config=self.configs[k]))
 
     def load_wl(self):
         '''
@@ -299,9 +298,9 @@ class Server(dispatcher):
         check readable
         also check for ping timeouts
         '''
-        tnow = int(now()/5)
-        if tnow % 2 == 0:
-            
+        tnow = int(now())
+        if tnow % 2 == 0 and not self._check_ping:
+            self._check_ping = False
             for user in self.handlers:
                 if tnow - user.last_ping_recv > self.pingtimeout:
                     self.nfo('timeout '+str(user))
@@ -309,8 +308,9 @@ class Server(dispatcher):
                     self.handlers.remove(user)
                 elif tnow - user.last_ping_send > self.pingtimeout / 2:
                     user.send_ping()
-
-        return True
+        elif tnow % 2 == 1:
+            self._check_ping = True
+        return dispatcher.readable(self)
 
     def toggle_debug(self):
         '''
@@ -354,6 +354,10 @@ class Server(dispatcher):
         user.kill(user)
         self.close_user(user)
 
+    def infom_links(self,type,src,dst,msg):
+        pass
+
+    @util.deprecate
     def privmsg(self,user,dest,msg):
         '''
         tell the server to send a private message from user to destination
@@ -361,16 +365,10 @@ class Server(dispatcher):
         
         dest can be a channel or nickname
         '''
+        self.inform_links('privmsg',user,dest,msg)
         onion = user.nick.endswith('.onion')
         self.dbg('privmsg %s -> %s -- %s'%(user.nick,dest,
                                            util.filter_unicode(msg)))
-        if dest.endswith('serv'):
-            d = dest.lower().split('serv')[0]
-            if not self.has_service(d):
-                user.privmsg(dest,'no such service')
-                return
-            self.service[d].serve(self,user,msg)
-            return 
         if (dest[0] in ['&','#'] and not self._has_channel(dest)) or (dest[0] not in ['&','#'] and dest not in self.users):
             user.send_num(401,'%s :No such nick/channel'%dest)
             return
@@ -381,7 +379,8 @@ class Server(dispatcher):
         else: # not a channel, is a user
             if dest in self.users:
                 self.users[dest].privmsg(user,msg)
-            
+
+    @util.deprecate
     def set_admin(self,user):
         '''
         set server admin to be user
@@ -433,7 +432,7 @@ class Server(dispatcher):
         does not add user to users list
         '''
         # send intial 001 response
-        if not user.nick.endswith('.onion'):
+        if not user.is_torchat:
             user.send_num('001','HOLY CRAP CONNECTED %s'%(user))
             #user.send_num('002','Your host is %s, running version nameless-ircd'%self.name)
             #user.send_num('003','This server was created a while ago')
@@ -489,6 +488,18 @@ class Server(dispatcher):
         traceback.print_exc()
         self.err(traceback.format_exc())
 
+    def on_user_closed(self,user):
+        '''
+        called when a user closes their connection
+        '''
+        if user.nick.endswith('serv'):
+            return
+        if user in self.handlers:
+            self.handlers.remove(user)
+        if user.nick in self.users:
+            self.users.pop(user.nick)
+
+    @util.deprecate
     def close_user(self,user):
         '''
         properly call client connection
@@ -508,6 +519,19 @@ class Server(dispatcher):
         except:
             self.err(traceback.format_exc())
 
+
+    def new_channel(self,chan):
+        '''
+        make a new channel
+        '''
+        assert chan[0] in ['&','#'] and len(chan) > 1
+        if chan[1] == '.':
+            assert len(chan) > 2
+        if chan in self.chans:
+            return
+        self.chans[chan] = Channel(chan,self)
+        
+
     @util.deprecate
     def pongloop(self):
         def check_ping(user):
@@ -518,13 +542,12 @@ class Server(dispatcher):
             pass
         self._iter(check_ping,nop,self.pingtimeout)
 
-    
+    @util.deprecate
     def send_admin(self,msg):
         '''
         send a message to the server admin
         '''
         for line in str(msg).split('\n'):
-            print ('ADMIN: ',line)
             if self.admin is None:
                 # send to backlog
                 self.admin_backlog.append(msg)
@@ -575,6 +598,17 @@ class Server(dispatcher):
         '''
         return chan in self.chans.keys()
 
+    def on_new_user(self,user):
+        '''
+        called when a new user is registered
+        '''
+        self.dbg('New User: '+str(user))
+        self.users[user.nick] = user
+        if user.is_service:
+            return
+        self.send_welcome(user)
+
+    @util.deprecate
     def add_user(self,user):
         '''
         add a user to the users list
@@ -612,6 +646,7 @@ class Server(dispatcher):
         self.dbg('New Channel %s'%chan)
         self.chans[chan] = Channel(chan,self)
 
+    @util.deprecate
     def join_channel(self,user,chan):
         '''
         have a user join a channel
@@ -680,11 +715,9 @@ class Server(dispatcher):
             newnick = user.do_nickname('')
         self.users[newnick] = self.users.pop(user.nick)
         for u in self.users.values():
-            if not isinstance(u, User): continue
+            if u.is_service: continue
             if u == user: continue
-            print u.nick, user.chans, u.chans
             for chan in set(user.chans).intersection(u.chans):
-                print chan, self.chans[chan].is_anon
                 if not self.chans[chan].is_anon:
                     u.nick_change(user,newnick)
                     break

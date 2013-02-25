@@ -1,2 +1,7 @@
 {
+    "autoconnect" : 0,
+    "allow_all" : 1,
+    "links" : {
+	"127.0.0.1:1123" : ""
+    }
 }
