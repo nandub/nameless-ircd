@@ -257,11 +257,10 @@ class User(base.BaseObject):
         part a channel
         '''
         chan = chan.lower()
-        if chan in self.chans and chan in self.server.chans:
-            self.server.chans[chan].user_quit(self)
+        if chan in self.chans:
             self.chans.remove(chan)
-        else:
-            self.chanserv('not in chanel: '+chan)
+        if chan in self.server.chans:
+            self.server.chans[chan].user_quit(self)
 
     def topic(self,channame,msg):
         '''
