@@ -46,7 +46,7 @@ def filter_unicode(data):
     # for marcusw's utf-8 allergies
     ret = ''
     for c in str(data):
-        if ord(c) > 128:
+        if ord(c) >= 128:
             ret += '?'
         else:
             ret += c
