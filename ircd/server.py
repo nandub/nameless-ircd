@@ -248,9 +248,10 @@ class admin(dispatcher):
         try:
             for line in data.split('\n'):
                 self.nfo('adminserv got line '+line)
-                self.server.service['admin'].handle_line(line)
+                if 'adminserv' in self.server.users:
+                    self.server.users['adminserv'].handle_line(line)
         except:
-            self.server.send_admin(traceback.format_exc())
+            self.server.handle_error()
 
 class Server(dispatcher):
     '''
