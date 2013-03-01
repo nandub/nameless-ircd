@@ -139,22 +139,19 @@ class User(base.BaseObject):
         make filtered message for +P
         '''
         out = ''
-        poni = self.server.poniponi or 'blah'
+        action = False
+        replacement = self.server.poniponi or 'blah'
+        wl = self.server.get_whitelist()
+        if msg.startswith('\01ACTION') and msg.endswith('\01'):
+            msg = msg[7:-1]
+            action = True
         for word in msg.split(' '):
             if len(word) == 0:
+                out += ' '
                 continue
-            if word.lower() in self.server.get_whitelist():
-                out += word
-            if "'" in word:
-                if '"' == word[0]:
-                    out += '"'
-                    out += poni[1:]
-                if '"' == word[-1]:
-                    out += '"'
-            else:
-                out += poni
+            out += util.filter_message(word,replacement,wl)
             out += ' '
-        return out
+        return action and '\01ACTION'+out+'\01' or out
 
     def privmsg(self,src,msg,dst=None):
         '''

@@ -19,7 +19,7 @@ class BaseObject:
         '''
         get full user name
         '''
-        return self.nick + '!anon@' + self.server.name
+        return self.nick + '!user@' + self.server.name
 
     @util.deprecate
     def user_mask(self):

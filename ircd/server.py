@@ -126,11 +126,9 @@ class Channel:
         for user in self.users:
             if user == orig:
                 continue
-            src = 'anonymous!anon@%s'%self.server.name
+            src = 'nameless!user@%s'%self.server.name
             if not self.is_anon: # case non anon channel
-                src = '%s!anon@%s'%(orig.nick,self.server.name)
-                if user == orig:
-                    src = orig.user_mask()
+                src = str(orig)
             # send privmesg
             user.privmsg(src,msg,dst=self)
 
@@ -141,7 +139,7 @@ class Channel:
         # mode for channel to send in response
         mod = '='  or ( self.is_invisible and '@' ) or (self.name[0] == '&' and '*' )
         if self.is_anon:
-            user.send_num(353,'%s %s :%s anonymous'%(mod,self.name,user.nick))
+            user.send_num(353,'%s %s :%s nameless'%(mod,self.name,user.nick))
         else:
             nicks = ''
             for u in self.users:
@@ -216,6 +214,10 @@ class User(_user,BaseUser):
     def __init__(self,sock,server):
         BaseUser.__init__(self,server)
         _user.__init__(self,sock)
+        
+    def handle_error(self):
+        self.server.handle_error()
+        self.handle_close()
     
     def handle_close(self):
         self.close_user()
@@ -474,19 +476,21 @@ class Server(dispatcher):
         print error message
         '''
         self._log('ERR',msg)
-        #try:
-        #    with open('log/errors.log','a') as a:
-        #        a.write(msg)
-        #        a.write('\n')
-        #except:
-        #     traceback.print_exc()
+        try:
+            with open('errors.log','a') as a:
+                a.write('incodent at %d'%now())
+                a.write('\n')
+                a.write(msg)
+                a.write('\n')
+        except:
+             traceback.print_exc()
 
 
     def handle_error(self):
         '''
         handle error
         '''
-        traceback.print_exc()
+        #traceback.print_exc()
         self.err(traceback.format_exc())
 
     def on_user_closed(self,user):

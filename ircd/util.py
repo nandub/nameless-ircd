@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import base64, hashlib, os, hmac, functools, inspect
+import base64, hashlib, os, hmac, functools, inspect, string
 from functools import wraps
 def _tripcode(data,salt):
     code = ''
@@ -41,7 +41,6 @@ def socks_connect(host,port,socks_host):
     else:
         return None, 'Socks Error got response code %s'%[d[1]]
 
-
 def filter_unicode(data):
     # for marcusw's utf-8 allergies
     ret = ''
@@ -56,6 +55,41 @@ _salt = 'salt'
 if os.path.exists('salt'):
     with open('salt') as s:
        _salt = s.read()
+
+
+_symbols = ''
+for n in range(128):
+    if n > 0 and chr(n) not in string.letters:
+        _symbols += chr(n)
+    
+def filter_message(s,replacement,whitelist):
+    s = filter_unicode(s)
+    parts = []
+    last = ''
+    # assume first word is "good"
+    is_word = True
+    # split word into parts
+    # each part are alternating "word" and "not word"
+    # a "word" is something that is qualified to be
+    # checked against the whitelist
+    for ch in s:
+        # does letter have a different "symbolness" than the last
+        # then add it to the part list
+        if ( ch in _symbols ) ^ is_word:
+            parts.append((last,ch in _symbols))
+            is_word = not is_word
+            last = ''
+        last += ch
+    ret = ''
+    parts.append((last,not is_word))
+    # for each word that is a "word"
+    # check for it being not in the whitelist
+    for part, is_word in parts:
+        if part.lower() in whitelist:
+            ret += part
+        else:
+            ret += is_word and replacement or part
+    return ret
 
 
 def deprecate(f):
@@ -88,6 +122,7 @@ def decorate(func):
         return functor
    
     return func_wrapper
+
 
 tripcode = lambda nick, trip : _tripcode(nick+'|'+trip,_salt)
 i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))

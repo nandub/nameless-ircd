@@ -103,11 +103,10 @@ class link(async_chat):
 
     def request_sync(self):
         self.send_msg({'sync':'sync'})
-        self.syncing = True
 
     def parse_sync(self,data):
         if 'sync' not in data:
-            return
+            return False
         if data['sync'] == 'done':
             self.syncing = False
             return
@@ -137,7 +136,7 @@ class link(async_chat):
                         self.server.users[user.nick] = user
                         for chan in user['chans']:
                             self.server.join_channel(self.server.users[user['nick']],chan)
-
+        return True
 
 
 
@@ -166,13 +165,7 @@ class link(async_chat):
         pass
 
     def parse_message(self,data):
-        # you can totally replay stuff by the way
-
-        if 'sync' in data and data['sync'] == 'sync':
-            self.send_sync()
-            return
-        if self.syncing:
-            self.parse_sync(data)
+        if self.parse_sync(data):
             return
         for e in ['data','event','dst','id']:
             if e not in data:
