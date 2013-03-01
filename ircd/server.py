@@ -437,7 +437,7 @@ class Server(dispatcher):
         # send intial 001 response
         if not user.is_torchat:
             user.send_num('001','Welcome to the Internet Relay Network %s'%str(user))
-            user.send_num('002','Your host is %s, running version nameless-ircd'%self.name)
+            user.send_num('002','Your host is %s, running version :nameless-ircd'%self.name)
             user.send_num('003','This server was created a while ago')
             user.send_num('004','%s nameless-ircd Pu x'%self.name)
         # send the motd

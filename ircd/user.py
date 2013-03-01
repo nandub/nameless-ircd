@@ -344,11 +344,15 @@ class User(base.BaseObject):
         
         data = inbuffer.lower()
         cmd = p[0].lower()
-
-        self.dbg('COMMAND: '+str(cmd)+' '+str(p))
+        param = []
+        for part in p:
+            if part == '':
+                continue
+            param.append(part)
+        self.dbg('COMMAND: '+str(cmd)+' '+str(param))
         if hasattr(self,'got_'+cmd):
             # element -1 is what is after the first :
-            getattr(self,'got_'+cmd)(p[1:])
+            getattr(self,'got_'+cmd)(param[1:])
 
     
     def got_quit(self,args):
