@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-import server
-import user
+import server, user, adminserv
 import signal, traceback, asyncore
 serv = None
 def hup(sig,frame):
@@ -40,7 +39,7 @@ def main():
         cfgs['linkserv'] = args.linkserv
     serv = server.Server((args.host,args.port),do_log=log,ipv6=args.ipv6,configs=cfgs)
     # make adminserv
-    server.admin(serv,'admin.sock')
+    adminserv.handler(serv,'admin.sock')
     # run mainloop
     asyncore.loop()
 

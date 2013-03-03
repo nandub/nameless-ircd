@@ -9,143 +9,9 @@ from threading import Thread
 import user
 User = user.User
 import socket,asyncore,base64,os,threading,traceback, json
-import services, util
+import services, util, channel
 
 BaseUser = user.BaseUser
-
-class Channel:
-    '''
-    irc channel object
-    '''
-    def __init__(self,name,server):
-        self.users = []
-        self.server =  server
-        self.topic = None
-        self.name = name
-        # is anon means that the channel does not relay nicknames
-        self.is_anon = self.name.startswith('&')
-        self.empty = lambda : len(self.users) == 0
-        # is invisible means that parts and joins are not relayed and the 
-        # channel is not in the server channel list
-        self.is_invisible = self.name[1] == '.'
-        
-    def set_topic(self,user,topic):
-        '''
-        set the topic by a user to string topic
-        '''
-        if user not in self.users:
-            user.send_num(442, "%s :You're not on that channel"%self.name)
-            return
-        self.topic = topic
-        self.send_topic()
-
-    def send_raw(self,msg):
-        '''
-        send raw to all users in channel
-        '''
-        for user in self.users:
-            user.send_raw(msg)
-
-    def __str__(self):
-        return self.name
-
-    def __len__(self):
-        return len(self.users)
-
-    def send_topic(self):
-        '''
-        send topic to all users in channel
-        '''
-        for user in self.users:
-            self.send_topic_to_user(user)
-
-    def send_topic_to_user(self,user):
-        '''
-        send topic to user
-        '''
-        if self.is_invisible and user not in self.users:
-            return
-        if self.topic is None:
-            user.send_num(331,'%s :No topic is set'%self.name)
-            return
-        user.send_num(332 ,'%s :%s'%(self.name,self.topic))
-
-    def joined(self,user):
-        ''' 
-        called when a user joins the channel
-        '''
-        if user in self.users:
-            return
-        # add to users in channel
-        self.users.append(user)
-        for u in self.users:
-            if self.is_anon: # case is an anon channel
-                if u == user:
-                    # send join to just the user for anon channel
-                    u.event(str(user),'join',self.name)
-                elif not self.is_invisible: # case is a non invisible channel
-                    # send increment to all users
-                    u.send_notice(self,
-                                  '%s -- %s online'%(self.name,len(self.users)))
-            else: # case is a regular channel
-                # send join to everyone
-                u.event(str(user),'join',self.name)
-        # send topic
-        self.send_topic_to_user(user)
-        # send who
-        self.send_who(user)
-
-    def user_quit(self,user,reason='quitting'):
-        '''
-        called when a user parts the channel
-        '''
-        # check for already in chanenel
-        if user not in self.users:
-            return
-        # remove from lists
-        self.users.remove(user)
-        # send part to user
-        user.event(user,'part',self.name)
-        # inform channel if needed
-        for u in self.users:
-            if not self.is_anon: # case non anon channel
-                # send part to all users
-                u.event(user,'part',self.name) 
-            elif not self.is_invisible: # case non invisible anon channel
-                # send decrement to all users 
-                u.send_notice(self.name,
-                              '%s -- %s online'%(self.name,len(self.users)))  
-        # expunge empty channel
-        if self.empty():
-            self.server.remove_channel(self.name)
-
-    def privmsg(self,orig,msg):
-        '''
-        send a private message from the channel to all users in the channel
-        '''
-        for user in self.users:
-            if user == orig:
-                continue
-            src = 'nameless!user@%s'%self.server.name
-            if not self.is_anon: # case non anon channel
-                src = str(orig)
-            # send privmesg
-            user.privmsg(src,msg,dst=self)
-
-    def send_who(self,user):
-        '''
-        send WHO to user
-        '''
-        # mode for channel to send in response
-        mod = '='  or ( self.is_invisible and '@' ) or (self.name[0] == '&' and '*' )
-        if self.is_anon:
-            user.send_num(353,'%s %s :%s nameless'%(mod,self.name,user.nick))
-        else:
-            nicks = ''
-            for u in self.users:
-                nicks += ' ' + u.nick    
-            user.send_num(353,'%s %s :%s'%(mod, self.name,nicks.strip()))
-        user.send_num(366,'%s :End of NAMES list'%self.name)
 
 
 class _user(async_chat):
@@ -157,15 +23,15 @@ class _user(async_chat):
         async_chat.__init__(self,sock)
         self.set_terminator('\r\n')
         self.buffer = ''
-        self.lines = {}
-        self.limit = 1000
+        self.lines = []
+        self.hlimit = 50
 
     def collect_incoming_data(self,data):
         
         self.buffer += data
         # if too long close line
         if len(self.buffer) > 1024:
-            self.close()
+            self.close_when_done()
     
     def found_terminator(self):
         '''
@@ -174,20 +40,26 @@ class _user(async_chat):
         b = self.buffer
         self.buffer = ''
         # flood control
-        t = int(now() / 30)
-        if t in self.lines:
-            self.lines[t] += len(b)
-            if self.lines[t] > self.limit:
-                if hasattr(self,'kill'):
-                    self.kill('flood')
-                else:
-                    self.close()
-        else:
-            self.lines[t] = len(b)
-        if len(self.lines) > 5:
-            self.lines = {}
+        t = int(now())
+        self.lines.append((b,t))
+        # keep history limit 
+        while len(self.lines) > self.hlimit:
+            self.lines.pop()
+
+        # check lines for flood
+        if self.check_flood(self.lines):
+            self.kill('flooding')
+            return
+            
         # inform got line
         self.handle_line(b)
+
+
+    def check_flood(self,lines):
+        raise NotImplemented()
+
+    def kill(self,msg):
+        raise NotImplemented()
 
     def send_msg(self,msg):
         '''
@@ -214,7 +86,8 @@ class User(_user,BaseUser):
     def __init__(self,sock,server):
         BaseUser.__init__(self,server)
         _user.__init__(self,sock)
-        
+        self.check_flood = server.check_flood
+
     def handle_error(self):
         self.server.handle_error()
         self.handle_close()
@@ -223,37 +96,6 @@ class User(_user,BaseUser):
         self.close_user()
         self.close()
 
-
-class admin(dispatcher):
-    '''
-    adminserv handler
-    '''
-    def __init__(self,server,path):
-        if os.path.exists(path):
-            os.unlink(path)
-        self.server = server
-        dispatcher.__init__(self)
-        self.nfo = lambda m: self.server.nfo('adminloop: '+str(m))
-        if not hasattr(socket,'AF_UNIX'):
-            self.nfo('not using admin module')
-            return
-        self.create_socket(socket.AF_UNIX,socket.SOCK_DGRAM)
-        self.set_reuse_addr()
-        self.bind(path)
-        self.nfo('adminserv ready')
-
-    def handle_read(self):
-        '''
-        read data and send each line to adminserv
-        '''
-        data = self.recv(1024)
-        try:
-            for line in data.split('\n'):
-                self.nfo('adminserv got line '+line)
-                if 'adminserv' in self.server.users:
-                    self.server.users['adminserv'].handle_line(line)
-        except:
-            self.server.handle_error()
 
 class Server(dispatcher):
     '''
@@ -273,6 +115,14 @@ class Server(dispatcher):
         self.handlers = []
         self.admin = None
         self.name = name
+        
+        # flood interval in seconds
+        self.flood_interval = 10
+        # lines per interval
+        self.flood_lpi = 20
+        # bytes per interval
+        self.flood_bpi = 1024
+
         self.chans = dict()
         self.users = dict()
         self.pingtimeout = 60 * 5
@@ -326,6 +176,30 @@ class Server(dispatcher):
         check for debug mode
         '''
         return not self._no_log
+
+
+
+    def check_flood(self,lines):
+        '''
+        given a list of (data, timestamp) tuples
+        check for "flooding"
+        '''
+        a = {}
+        for line , tstamp in lines:
+            tstamp = tstamp / self.flood_interval
+            if tstamp not in a:
+                a[tstamp] = (0,0)
+            d,t = a[tstamp]
+            d += len(line)
+            t += 1
+            # check for flooding bytes wise
+            if d >= self.flood_bpi:
+                return True
+            # check for flooding line wise
+            elif t >= self.flood_lpi:
+                return True
+            a[tstamp] = (d,t)
+        return False
 
     def nfo(self,msg):
         self._log('NFO',msg)
@@ -534,7 +408,7 @@ class Server(dispatcher):
             assert len(chan) > 2
         if chan in self.chans:
             return
-        self.chans[chan] = Channel(chan,self)
+        self.chans[chan] = channel.Channel(chan,self)
         
 
     @util.deprecate
@@ -711,23 +585,25 @@ class Server(dispatcher):
         '''
         self.dbg('server nick change %s -> %s' % (user.nick,newnick))
         if len(newnick) > 30: # nickname too long
-            user.send_num(432, "%s :Erroneous nickname"%newnick)
             newnick = user.do_nickname('')
-        # TODO: fix
         elif newnick in self.users: # colliding nickname
-            user.send_num(433, "%s :Nickname is already in use"%newnick)
-            if newnick == user.nick: return
             newnick = user.do_nickname('')
+        
+        if user.nick not in self.users:
+            self.users[user.nick] = user
+
         self.users[newnick] = self.users.pop(user.nick)
-        for u in self.users.values():
-            if u.is_service: continue
-            if u == user: continue
-            for chan in set(user.chans).intersection(u.chans):
-                if not self.chans[chan].is_anon:
-                    u.nick_change(user,newnick)
-                    break
-        # inform change
-        user.nick_change(user,newnick)
+
+        # users to inform
+        users = {user:0}
+        for chan in user.chans:
+            if chan in self.chans:
+                for user in self.chans[chan].users:
+                    if user not in users:
+                        users[user] = 0
+        for u in users:
+            u.nick_change(user,newnick)
+
         # commit change
         user.nick = newnick
         user.usr = newnick

@@ -65,110 +65,6 @@ class Service(base.BaseObject):
     def __str__(self):
         return self.get_full_name()
 
-class adminserv(Service):
-    
-    def __init__(self,server,config={}):
-        Service.__init__(self,server,config=config)
-        self.nick = self.__class__.__name__
-        self.cmds = {
-            'debug':self.toggle_debug,
-            'denerf':self.denerf_user,
-            'nerf':self.nerf_user,
-            'nerf_all':self.nerf_all,
-            'denerf_all':self.denerf_all,
-            'ping':self.set_ping,
-            'global':self.send_global,
-            'count':self.count_users,
-            'list':self.list_users,
-            'kline':self.kline,
-            'help':self.send_help
-            }
-
-    def handle_line(self,line):
-        class dummy:
-            def __init__(self):
-                self.nick = util.get_admin_hash()
-            def privmsg(self,*args,**kwds):
-                pass
-        self.privmsg(dummy(),line)
-
-    @admin
-    def serve(self,server,user,line,resp_hook):
-        Service.serve(self,server,user,line,resp_hook)
-
-    def send_help(self,args,resp_hook):
-        resp_hook('commands:')
-        for cmd in self.cmds:
-            resp_hook('- '+cmd)
-
-    def toggle_debug(self,args,resp_hook):
-        self.server.toggle_debug()
-        resp_hook('DEBUG: %s' % self.server.debug())
-
-    def nerf_user(self,args,resp_hook):
-        for u in args:
-            if u in self.server.users:
-                u = self.server.users[u]
-                u.set_mode('+P')
-                u.lock_modes()
-                resp_hook('set mode +P on '+u.nick)
-    def denerf_user(self,args,resp_hook):
-        for u in args:
-            if u in self.server.users:
-                u = self.server.users[u]
-                u.set_mode('-P')
-                u.unlock_modes()
-                resp_hook('set mode -P on '+u.nick)
-
-    def nerf_all(self,args,resp_hook):
-        self.server.send_global('Global +P Usermode Set')
-        for u in self.server.handlers:
-            u.set_mode('+P')
-            u.lock_modes()
-        resp_hook('GLOBAL +P')
-
-    def denerf_all(self,args,resp_hook):
-        self.server.send_global('Global -P Usermode Set')
-        for u in self.server.handlers:
-            u.unlock_modes()
-            u.set_mode('-P')
-        resp_hook('GLOBAL -P')
-
-    def set_ping(self,args,resp_hook):
-        server = self.server
-        if len(args) == 1:
-            try:
-                old = server.pingtimeout
-                server.pingtimeout = int(args[0])
-                if server.pingtimeout < 10:
-                    server.pingtimeout = 10
-            except:
-                resp_hook('not a number')
-        resp_hook('PING: %s seconds'%server.pingtimeout)
-
-    def send_global(self,args,resp_hook):
-        msg = ' '.join(args)
-        self.server.send_global(msg)
-        resp_hook('GLOBAL: %s'%msg)
-    
-    def count_users(self,args,resp_hook):
-        resp_hook('%d Users connected'%len(self.server.users.items()))
-        
-    def list_users(self,args,resp_hook):
-        resp_hook('LIST COMMAND')
-        for user in self.server.users:
-            resp_hook('USER:'+str(user))
-
-    def kline(self,args,resp_hook):
-        resp_hook('KLINE')
-        for u in args:
-            if u not in self.server.users:
-                resp_hook('NO USER: '+str(u))
-            u= server.users[u]
-            u.kill('kline')
-            resp_hook('KILLED '+str(u))
-
-
 class tripserv(Service):
     @util.deprecate
     def __init__(self,server):
@@ -213,6 +109,7 @@ class tripserv(Service):
 
 # from tcserv import tcserv
 from linkserv import linkserv
+from adminserv import adminserv
 services = {
     #'tripserv':tripserv, # tripserv deprecated
     'adminserv':adminserv,

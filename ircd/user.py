@@ -20,7 +20,8 @@ def require_min_args(f,l):
     def func(*args,**kwds):
         user = args[0]
         if len(args[1]) < l:
-            user.send_num(461,args[1][0].upper()+' :Not Enough Parameters')
+            name = f.func_name.split('got_')[-1].upper()
+            user.send_num(461,name+' :Not Enough Parameters')
         else:
             f(*args,**kwds)
     return func
@@ -453,10 +454,7 @@ class User(base.BaseObject):
         '''
         called when user changes their nickname to newnick
         '''
-        if user == self:
-            data = ':%s NICK %s'%(user,newnick)
-        else:
-            data = ':%s!anon@%s NICK %s'%(user.nick,self.server.name,newnick)
+        data = ':'+str(user)+' NICK '+str(newnick)
         self.send_raw(data)
 
     def send_msg(self,data):
