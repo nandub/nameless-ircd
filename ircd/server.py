@@ -584,11 +584,13 @@ class Server(dispatcher):
         have user change nickname newnick
         '''
         self.dbg('server nick change %s -> %s' % (user.nick,newnick))
+        newnick = user.do_nickname(newnick)
         if len(newnick) > 30: # nickname too long
             newnick = user.do_nickname('')
-        elif newnick in self.users: # colliding nickname
+
+        if newnick in self.users:
             newnick = user.do_nickname('')
-        
+
         if user.nick not in self.users:
             self.users[user.nick] = user
 
