@@ -596,9 +596,9 @@ class Server(dispatcher):
         users = {user:0}
         for chan in user.chans:
             if chan in self.chans:
-                for user in self.chans[chan].users:
-                    if user not in users:
-                        users[user] = 0
+                for u in self.chans[chan].users:
+                    if u not in users:
+                        users[u] = 0
         for u in users:
             u.nick_change(user,newnick)
 
