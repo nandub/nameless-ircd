@@ -489,7 +489,6 @@ class Server(dispatcher):
         if user.is_service:
             return
         self.send_welcome(user)
-        self.inform_links({'src':self.name,'dst':
 
     @util.deprecate
     def add_user(self,user):
