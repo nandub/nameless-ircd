@@ -59,8 +59,9 @@ class adminserv(services.Service):
         class dummy:
             def __init__(self):
                 self.nick = util.get_admin_hash()
+                
             def privmsg(self,*args,**kwds):
-                self.server.dbg('Adminserv: '+str( args[2] ) )
+                pass
         self.privmsg(dummy(),line)
 
     @services.admin
