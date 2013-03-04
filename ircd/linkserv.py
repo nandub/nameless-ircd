@@ -26,13 +26,7 @@ class listener(dispatcher):
 
 class link(async_chat):
     """
-    s2s TL;DR 
-
-    servers pass arround JSON Objects that are signed by their senders
-    server could possibly unpack messages and claim they are from them
-    by repacking the json object as their own.
-
-    Nothing much can stop that so nothing will be done about it.
+    s2s link connector
     """
 
     def __init__(self,sock,parent,name='?'):
@@ -41,168 +35,45 @@ class link(async_chat):
         self.server = parent.server
         self.set_terminator(self.parent.delim)
         self.ibuffer = ''
-        self.state = 0
         self.name = name
         self.syncing = False
-        self.dbg = lambda m : self.parent.dbg('link-%s %s'%(self.name,m))
+        self.dbg = lambda m : self.parent.dbg('link-'+str(name)+': '+str(m))
         self.handle_error = self.server.handle_error
         self.init()
 
-    @util.deprecate
-    def sign(self,data):
-        return link_protocol.sign(data)
-
-    @util.deprecate
-    def verify(self,data,sig):
-        try:
-            link_protocol.verify(data,sig)
-            return data
-        except:
-            self.server.handle_error() # report error
-            return None
-
-    def gen_id(self):
-        # probably won't be a problem for a while
-        return int(time.time())
-
     def send_msg(self,data):
-        data['id'] = self.gen_id()
-        self.dbg('send '+str(data))
-        data = json.dumps(data)
-        self.push(data)
-        self.push(link_protocol.delim)
-        
+        self.send_raw(data)
+
     def collect_incoming_data(self,data):
         self.ibuffer += data
 
     def found_terminator(self):
         data = self.ibuffer
         self.ibuffer = ''
-        if data is None:
-            # drop unverifiable messages
-            return 
-        try:
-            j = json.loads(data)
-            self.dbg('Got Messsge '+str(j))
-        except:
-            self.bad_fomat()
-            self.handle_error()
-            return
-        if 'error' in j:
-            self.dbg('ERROR: %s'%j['error'])
-            return
-        self.on_message(j)
+        '''
+        :Name COMMAND parameter list
+        '''
+        p = data.split(' ')
+        if data[0] == ':':
+            if len(p) > 3:
+                name = p[0][1:]
+                cmd = p[1]
+                param = p[2]
+                ls = p[3].split(',')
+                if hasattr(self,'on_'+cmd):
+                    getattr(self,'on_'+cmd)(name,param,ls)
+            else:
+                self.err('bad data from '+self.name+': '+str([data]))
 
     def error(self,msg):
-        self.dbg('error: %s'%msg)
-        self.send_msg({'error':msg})
+        self.server.err('linkerror: '+str(msg))
         self.close_when_done()
 
-    def bad_format(self):
-        self.error('bad format')
 
-    def request_sync(self):
-        self.send_msg({'sync':'sync'})
-
-    def parse_sync(self,data):
-        if 'sync' not in data:
-            return False
-        if data['sync'] == 'done':
-            self.syncing = False
-            return
-        elif data['sync'] == 'sync':
-            self.send_sync()
-        else:
-            if 'chans' in data['sync']:
-                for chan in data['sync']['chans']:
-                    for attr in ['topic','name']:
-                        if attr not in chan:
-                            self.error('channel format')
-                            return
-                    if chan['name'][0] not in ['&','#']:
-                        self.error('channel format')
-                        return
-                    if chan['name'] not in self.server.chans:
-                        self.server.chans[chan['name']] = Chan(chan['name'],self.server)
-                        self.server.chans[chan['name']].set_topic(chan['topic'])
-            if 'users' in data['sync']:
-                for user in data['sync']['users']:
-                    for attr in ['nick','chans']:
-                        if attr not in user:
-                            self.error('user format')
-                            return
-                    if user['nick'] not in self.server.users:
-                        user = link_user(self,user['nick'])
-                        self.server.users[user.nick] = user
-                        for chan in user['chans']:
-                            self.server.join_channel(self.server.users[user['nick']],chan)
-        return True
-
-
-
-    def send_sync(self):
-        users = self.server.users.values()
-        users = filter(lambda u : not u.nick.endswith('serv') , users)
-        usersent = []
-        for user in users:
-            usersent.append({ 'nick' : user.nick, 'chans' : user.chans })
-            
-        chansent = []
-        for chan in self.server.chans.values():
-            chansent.append({'name':chan.name,'topic':chan.topic})
-        self.send_msg({
-                'sync':{
-                    'chans':chansent,
-                    'users':usersent
-                    }
-                })
-        self.send_msg({'sync':'done'})
-
-    def on_message(self,data):
-        pass
-
-    def init(self):
-        pass
-
-    def parse_message(self,data):
-        if self.parse_sync(data):
-            return
-        for e in ['data','event','dst','id']:
-            if e not in data:
-                self.bad_format()
-                return
-        self.got_message(data['event'],data['data'],data['dst'])
-        expunge = False
-        if dst[0] not in ['#','&']:
-            if dst in self.servers.users:
-                if not self.servers.users[dst].is_remote:
-                    expunge = True
-        if not expunge:
-            self.parent.forward(raw)
-
-    def got_message(self,event,data,dst):
-        event = event.lower()
-        if not hasattr(self,'_got_%s'%event):
-            self.error('bad event')
-            return
-        try:
-            getattr(self,'_got_%s'%event)(dst,data)
-        except:
-            self.handle_error()
-
-    def _got_raw(self,dst,data):
-        if dst[0] in ['&', '#'] :
-            if dst in self.server.chans:
-                dst = self.server.chans[dst]
-            else:
-                return
-        else:
-            if dst in self.server.users:
-                dst = self.server.users[dst]
-            else:
-                return
-        dst.send_raw(data)        
-
+    def send_raw(self,data):
+        self.push(data+'\r\n')
+        
+        
 
 class link_user(User):
 
@@ -215,59 +86,14 @@ class link_user(User):
         self.is_remote = True
     
     def send_msg(self,msg):
-        if self.link.syncing:
-            self.backlog.append(msg)
-        else:
-            while len(self.backlog) > 0:
-                self.link.send_msg(self.backlog.pop())
-            self.link.send_msg({'data':msg,'event':'raw','dst':str(self)})
+        pass
 
 class link_send(link):
-
     def init(self):
-        login = self.parent.get_login(self.name)
-        if login is not None:
-            self.send_msg({'server':self.server.name,'login':login})
-            self.state += 1
-        else:
-            self.error('no auth for '+str(self.dest))
-
-    def on_message(self,data):
-      
-        if self.state == 1:
-            if 'auth' not in data:
-                self.error('bad auth')
-                return
-            if data['auth'].lower() == 'ok':
-                self.state += 1
-        elif self.state == 2:
-            self.request_sync()
-            self.state += 1
-        elif self.state == 3:
-            self.parse_message(data)
-
+        self.send_raw('')
 
 class link_recv(link):
-
-    def on_message(self,data):
-        if self.state == 0:
-            for e in ['server','login']:
-                if e not in data:
-                    self.bad_format()
-                    return
-            if self.parent.check(data['server'],data['login']):
-                self.name = data['server']
-                self.parent.links.append(self)
-                self.server.send_admin('server linked: %s'%self.name)
-                self.send_msg({'auth':'ok'})
-                self.request_sync()
-                self.state += 1
-            else:
-                self.error('bad auth')
-        elif self.state == 1:
-            self.parse_message(data)
-
-
+    pass
 
 
 class linkserv(Service):
@@ -292,6 +118,10 @@ class linkserv(Service):
         if 'links' in j and dest in j['links']:
             return j['links'][dest]
         return None
+
+    def inform_links(self,data):
+        for link in self.links:
+            link.sendmsg(data)
     
     def forward_data(self,data):
         for link in self.links:
@@ -307,6 +137,7 @@ class linkserv(Service):
             self.bind_addr = ('127.0.0.1', 9991)
         if self.listener is not None:
             self.listener.close()
+        self.dbg('using bindhost %s:%s'%self.bind_addr)
         self.listener = listener(self)
 
     @admin
@@ -402,6 +233,7 @@ class linkserv(Service):
         
 
     def check(self,server,login):
+        self.dbg('check server='+str(server)+' login='+str(login))
         j = self.get_cfg()
         if server not in j['links']:
             if 'allow_all' not in j:

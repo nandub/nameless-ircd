@@ -48,7 +48,10 @@ class _user(async_chat):
 
         # check lines for flood
         if self.check_flood(self.lines):
-            self.kill('flooding')
+            if hasattr(self,'kill'):
+                self.kill('floodkill')
+            else:
+                self.close()
             return
             
         # inform got line
@@ -56,10 +59,7 @@ class _user(async_chat):
 
 
     def check_flood(self,lines):
-        raise NotImplemented()
-
-    def kill(self,msg):
-        raise NotImplemented()
+        return False
 
     def send_msg(self,msg):
         '''
@@ -75,7 +75,6 @@ class _user(async_chat):
         push a line to be sent
         '''
         self.push(msg+'\r\n')
-        
 
 
 class User(_user,BaseUser):
@@ -177,7 +176,11 @@ class Server(dispatcher):
         '''
         return not self._no_log
 
-
+    def inform_links(self,data):
+        if 'linkserv' in self.users:
+            self.users['linkserv'].inform_links(data)
+        else:
+            self.dbg('no linkserv')
 
     def check_flood(self,lines):
         '''
@@ -486,6 +489,7 @@ class Server(dispatcher):
         if user.is_service:
             return
         self.send_welcome(user)
+        self.inform_links({'src':self.name,'dst':
 
     @util.deprecate
     def add_user(self,user):
@@ -561,11 +565,11 @@ class Server(dispatcher):
         remove channel
         '''
         chan = chan.lower()
-        if self._has_channel(chan): # check for channel
+        if chan in self.chans:
             chan = self.chans[chan]
             for user in chan.users: # inform part
                 self.part_channel(user,chan.name)
-
+            
                 
                 
             
@@ -577,7 +581,7 @@ class Server(dispatcher):
         chan = chan.lower()
         if chan in self.chans:
             self.chans[chan].user_quit(user) # send part
-
+        self.inform_links({'src':str(user),'dst':chan,'event':'part'})
 
     def change_nick(self,user,newnick):
         '''
@@ -601,10 +605,12 @@ class Server(dispatcher):
                         users[u] = 0
         for u in users:
             u.nick_change(user,newnick)
+        self.inform_links({'src':str(user),'dst':newnick,'event':'nick'})
 
         # commit change
         user.nick = newnick
         user.usr = newnick
+        
         self.dbg('user is now %s'%user)
 
     def stop(self):

@@ -36,7 +36,7 @@ def main():
     # make server 
     cfgs = { 'adminserv' : '' }
     if not args.no_link:
-        cfgs['linkserv'] = args.linkserv
+        cfgs['linkserv'] = {'fname' : args.linkserv }
     serv = server.Server((args.host,args.port),do_log=log,ipv6=args.ipv6,configs=cfgs)
     # make adminserv
     adminserv.handler(serv,'admin.sock')
