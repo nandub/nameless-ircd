@@ -11,7 +11,7 @@ def admin(f):
         user = args[2]
         server = args[1]
         if user.nick != util.get_admin_hash():
-            server.kill(user,'service abuse ;3')
+           user.kill('service abuse ;3')
         else:
             f(*args,**kwds)
     return func

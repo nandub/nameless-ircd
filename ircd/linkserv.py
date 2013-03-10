@@ -41,12 +41,18 @@ class link(async_chat):
         self.handle_error = self.server.handle_error
         self.init()
 
+
+    def handle_close(self):
+        self.close()
+        self.parent.link_closed(self)
+        
+
     def send_msg(self,data):
         self.send_raw(data)
 
     def collect_incoming_data(self,data):
         self.ibuffer += data
-
+ 
     def found_terminator(self):
         data = self.ibuffer
         self.ibuffer = ''
@@ -168,6 +174,10 @@ class linkserv(Service):
     def kill_links(self):
         while len(self.links) > 0:
             self.links.pop().close()
+
+    def link_closed(self, link):
+        if link in self.links:
+            self.links.remove(link)
 
     def wait_for_links_dead(self):
         pass
