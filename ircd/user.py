@@ -280,6 +280,8 @@ class User(base.BaseObject):
         if msg:
             if self.check_topic_ratelimit():
                 chan.set_topic(self,msg)
+            else:
+                self.kill('topic flood')
         else:
             chan.send_topic_to_user(self)
 
