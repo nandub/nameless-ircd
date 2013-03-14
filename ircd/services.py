@@ -108,7 +108,6 @@ class tripserv(Service):
         self.server.change_nick(user,'%s|%s'%(name,trip))
 
 # from tcserv import tcserv
-from linkserv import linkserv
 from adminserv import adminserv
 services = {
     #'tripserv':tripserv, # tripserv deprecated

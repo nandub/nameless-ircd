@@ -1,7 +1,0 @@
-{
-    "autoconnect" : 0,
-    "allow_all" : 1,
-    "links" : {
-    },
-    "binaddr" : "127.0.0.1:9910"
-}

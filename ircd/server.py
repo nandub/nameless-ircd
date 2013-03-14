@@ -14,6 +14,27 @@ import services, util, channel
 BaseUser = user.BaseUser
 
 
+class multiserver_dict:
+    
+    def __init__(self,attr):
+        self.servs = []
+        self.attr = attr
+
+    def __iter__(self):
+        l = []
+        for serv in self.servs:
+            for i in getattr(serv,self.attr):
+                l.append(i)
+        return iter(l)
+
+    def add_serv(self,serv):
+        if serv not in self.servs:
+            self.servs.append(serv)
+
+    def del_serv(self,serv):
+        if serv in self.servs:
+            self.servs.remove(serv)
+
 class _user(async_chat):
     '''
     async_chat user object

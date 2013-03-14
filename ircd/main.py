@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import server, user, adminserv
-import signal, traceback, asyncore
+import signal, traceback, asyncore, json
 serv = None
 def hup(sig,frame):
     '''
@@ -23,9 +23,8 @@ def main():
     ap.add_argument('--port',type=int,help='port to run on',default=6666)
     ap.add_argument('--host',type=str,help='bind host',default='127.0.0.1')
     ap.add_argument('--log',action='store_const',const=True, default=False,dest='log',help='enable logging by default')
-    ap.add_argument('--linkserv',type=str,help='linkserv config file',default='linkserv.json')
+    ap.add_argument('--conf',type=str,help='config file',default=None)
     ap.add_argument('-6',action='store_const',const=True, default=False,dest='ipv6',help='use ipv6')
-    ap.add_argument('--no-link',action='store_const',const=True,default=False,dest='no_link',help='do not use linkserv')
     # parse args
     args = ap.parse_args()
     # check for SIGHUP
@@ -34,9 +33,13 @@ def main():
     log = args.log
     global serv
     # make server 
-    cfgs = { 'adminserv' : '' }
-    if not args.no_link:
-        cfgs['linkserv'] = {'fname' : args.linkserv }
+    cfgs = { }
+    if args.conf is not None:
+        with open(args.conf) as r:
+            cfgs = json.load(r)
+    else:
+        cfgs = {'adminserv' : ''}
+
     serv = server.Server((args.host,args.port),do_log=log,ipv6=args.ipv6,configs=cfgs)
     # make adminserv
     adminserv.handler(serv,'admin.sock')
