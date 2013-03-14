@@ -112,6 +112,6 @@ from adminserv import adminserv
 services = {
     #'tripserv':tripserv, # tripserv deprecated
     'adminserv':adminserv,
-    'linkserv':linkserv,
+    #'linkserv':linkserv,
     #'tcserv':tcserv
 }
