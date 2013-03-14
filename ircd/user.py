@@ -102,6 +102,7 @@ class User(base.BaseObject):
         self.usr = ''
         self.name = ''
         self.last_ping = 0
+        self.last_topic = 0
         self.chans = []
         self.modes = modes()
         self.welcomed = False
@@ -260,6 +261,14 @@ class User(base.BaseObject):
         if chan in self.server.chans:
             self.server.chans[chan].user_quit(self)
 
+
+    def check_topic_ratelimit(self):
+        ret = now() - self.last_topic > self.server.topic_limit
+        self.last_topic = now()
+        return ret
+        
+
+
     def topic(self,channame,msg):
         '''
         called when TOPIC is recieved
@@ -269,7 +278,8 @@ class User(base.BaseObject):
             return
         chan = self.server.chans[channame]
         if msg:
-            chan.set_topic(self,msg)
+            if self.check_topic_ratelimit():
+                chan.set_topic(self,msg)
         else:
             chan.send_topic_to_user(self)
 

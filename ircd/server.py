@@ -142,6 +142,8 @@ class Server(dispatcher):
         self.flood_lpi = 20
         # bytes per interval
         self.flood_bpi = 1024
+        # topic limit
+        self.topic_limit = 60
 
         self.chans = dict()
         self.users = dict()

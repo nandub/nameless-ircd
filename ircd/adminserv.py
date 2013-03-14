@@ -52,7 +52,7 @@ class adminserv(services.Service):
             'list':self.list,
             'kill':self.kline,
             'help':self.send_help,
-            'flood':self.set_flood_kill
+            'limit':self.limit,
             }
 
     def handle_line(self,line):
@@ -67,6 +67,32 @@ class adminserv(services.Service):
     @services.admin
     def serve(self,server,user,line,resp_hook):
         services.Service.serve(self,server,user,line,resp_hook)
+
+
+    def limit(self,args,resp_hook):
+        """
+        limit items
+        """
+        resp = []
+        resp.append('topic: '+str(self.server.topic_limit) )
+        if len(args) > 0:
+            attr = args[0]
+            val = None
+            if len(args) > 1:
+                try:
+                    val = int(args[1])
+                    if val <= 0:
+                        raise Exception()
+                except:
+                    resp_hook('invlaid value: '+args[1])
+                    return
+            if attr == 'topic':
+                if val is not None:
+                    self.server.topic_limit = val
+                resp = ['topic: '+str(self.server.topic_limit)]
+        for line in resp:
+            resp_hook(line)
+
 
     def send_help(self,args,resp_hook):
         """
