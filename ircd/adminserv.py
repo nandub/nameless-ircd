@@ -251,7 +251,7 @@ class adminserv(services.Service):
             if u not in self.server.users:
                 resp_hook('NO USER: '+str(u))
                 continue
-            u = server.users[u]
+            u = self.server.users[u]
             u.kill('kline')
             resp_hook('KILLED '+str(u))
 
