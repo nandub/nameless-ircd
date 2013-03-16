@@ -204,7 +204,7 @@ class User(base.BaseObject):
         use Server.kill(user,reason) instead
         '''
         self.send_notice('killserv!killserv@'+str(self.server.name),'Your connection was killed: '+str(reason))
-        self.close_when_done()
+        self.handle_close()
 
     def on_pong(self,pong):
         '''
