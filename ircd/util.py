@@ -129,6 +129,19 @@ def get_admin_hash_list():
     with open('admins.json') as r:
         return json.load(r)
 
+toggle_trace = False
+
+def trace(f):
+    global toggle_trace
+    @wraps(f)
+    def wrapper(*arg,**kw):
+        '''This decorator shows how the function was called'''
+        if toggle_trace:
+            arg_str=','.join(['%s'%[a] for a in arg]+['%s=%s'%(key,kw[key]) for key in kw])
+            print "%s(%s)" % (f.func_name, arg_str)
+        return f(*arg, **kw)
+    return wrapper
+
 tripcode = lambda nick, trip : _tripcode(nick+'|'+trip,_salt)
 i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))
 tor_connect = lambda host,port: socks_connect(host,port,('127.0.0.1',9050))

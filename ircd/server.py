@@ -10,6 +10,7 @@ import user
 User = user.User
 import socket,asyncore,base64,os,threading,traceback, json
 import services, util, channel
+from util import trace
 
 BaseUser = user.BaseUser
 
@@ -53,7 +54,7 @@ class _user(async_chat):
         # if too long close line
         if len(self.buffer) > 1024:
             self.close_when_done()
-    
+    @trace
     def found_terminator(self):
         '''
         got line
@@ -90,7 +91,7 @@ class _user(async_chat):
         msg = util.filter_unicode(msg)
         # screw unicode :p
         self.ascii_send_msg(msg.encode('ascii'))
-        
+    @trace
     def ascii_send_msg(self,msg):
         '''
         push a line to be sent
@@ -121,6 +122,7 @@ class Server(dispatcher):
     '''
     main server object
     '''
+    @trace
     def __init__(self,addr,name='nameless',ipv6=False,do_log=False,poni=None,configs={}):
         self._no_log = not do_log
         self.poniponi = poni
@@ -165,18 +167,18 @@ class Server(dispatcher):
         def ping_loop():
             while self.on:
                 self.check_ping()
-                sleep(0.5)
+                sleep(5)
                 
         t = Thread(target=ping_loop,args=())
         self.threads = [t]
-
+    @trace
     def load_wl(self):
         '''
         load whitelist for mode +P
         '''
         with open('whitelist.txt') as f:
             self.whitelist = json.load(f)
-
+    @trace
     def check_ping(self):
         '''
         check for ping timeouts
@@ -190,25 +192,25 @@ class Server(dispatcher):
             elif tnow - user.last_ping_send > self.pingtimeout / 2:
                 user.send_ping()
         
-
+    @trace
     def toggle_debug(self):
         '''
         toggle debug mode
         '''
         self._no_log = not self._no_log
-
+    @trace
     def debug(self):
         '''
         check for debug mode
         '''
         return not self._no_log
-
+    @trace
     def inform_links(self,data):
         if 'linkserv' in self.users:
             self.users['linkserv'].inform_links(data)
         else:
             self.dbg('no linkserv')
-
+    @trace
     def check_flood(self,lines):
         '''
         given a list of (data, timestamp) tuples
@@ -244,7 +246,9 @@ class Server(dispatcher):
                 func()
             except:
                 self.err(traceback.format_exc())
+            
         return threading.Thread(target=f,args=())
+    @trace
     def motd(self):
         '''
         load message of the day
@@ -253,14 +257,14 @@ class Server(dispatcher):
         with open('motd','r') as f:
             d += f.read()
         return d
-
+    @trace
     def kill(self,user,reason):
         '''
         kill a user with a reason
         '''
         user.kill(user)
         self.close_user(user)
-
+    @trace
     def infom_links(self,type,src,dst,msg):
         pass
 
@@ -296,14 +300,14 @@ class Server(dispatcher):
             self.admin.privmsg(self.service['admin'],'no longer oper')
         self.admin = user
         self.admin.privmsg(self.service['admin'],'you are now oper ;3')
-
+    @trace
     def send_global(self,msg):
         '''
         send a global message to all users connected
         '''
         for user in self.handlers:
             user.send_notice('globalserv!service@nameless',msg)
-
+    @trace
     def has_service(self,serv):
         '''
         check if a service exists
@@ -323,7 +327,7 @@ class Server(dispatcher):
         #with open('log/server.log','a') as f:
         #    f.write('[%s -- %s] %s\n'%(type,now(),msg))
 
-
+    @trace
     def send_motd(self,user):
         '''
         send the message of the day to user
@@ -332,7 +336,7 @@ class Server(dispatcher):
         for line in self.motd().split('\n'):
             user.send_num(372, ':- %s '%line)
         user.send_num(376, ':- End of MOTD command')
-
+    @trace
     def send_welcome(self,user):
         '''
         welcome user to the server
@@ -362,7 +366,7 @@ class Server(dispatcher):
         print debug message
         '''
         self._log('DBG',msg)
-
+        
     @util.deprecate
     def _iter(self,f_iter,f_cycle,timesleep):
         while self.on:
@@ -374,7 +378,7 @@ class Server(dispatcher):
                     self.handle_error()
             sleep(timesleep)
     
-
+    @trace
     def err(self,msg):
         '''
         print error message
@@ -389,14 +393,14 @@ class Server(dispatcher):
         except:
              traceback.print_exc()
 
-
+    @trace
     def handle_error(self):
         '''
         handle error
         '''
         #traceback.print_exc()
         self.err(traceback.format_exc())
-
+    @trace
     def on_user_closed(self,user):
         '''
         called when a user closes their connection
@@ -428,7 +432,7 @@ class Server(dispatcher):
         except:
             self.err(traceback.format_exc())
 
-
+    @trace
     def new_channel(self,chan):
         '''
         make a new channel
@@ -500,13 +504,13 @@ class Server(dispatcher):
             self.dbg('sending pings')
         self._iter(ping,debug,self.pingtimeout/self.ping_retry)
             
-    
+    @trace
     def _has_channel(self,chan):
         '''
         check if a channel exists
         '''
         return chan in self.chans.keys()
-
+    @trace
     def on_new_user(self,user):
         '''
         called when a new user is registered
@@ -534,7 +538,7 @@ class Server(dispatcher):
     @util.deprecate
     def has_user(self,nick):
         return nick in self.users.keys()
-
+    @trace
     def send_list(self,user):
         '''
         send server channel list to user
@@ -546,7 +550,7 @@ class Server(dispatcher):
                 continue
             user.send_num(322,'%s %d :%s'%(chan.name,len(chan),chan.topic or ''))
         user.send_num(323 ,':End of LIST')
-
+    @trace
     def _add_channel(self,chan):
         '''
         make a new channel
@@ -573,19 +577,19 @@ class Server(dispatcher):
             user.chans.append(chan)
         else: # invalid name
             user.send_notice('chanserv!service@%s'%self.name,'bad channel name: %s'%chan)
-
+    @trace
     def reload(self):
         '''
         reload server's state
         '''
         self.load_wl()
-    
+    @trace
     def get_whitelist(self):
         '''
         get whitelist for +P
         '''
         return self.whitelist
-
+    @trace
     def remove_channel(self,chan):
         '''
         remove channel
@@ -599,7 +603,7 @@ class Server(dispatcher):
                 
                 
             
-                
+    @trace
     def part_channel(self,user,chan):
         '''
         have a user part a channel with name chan
@@ -608,7 +612,7 @@ class Server(dispatcher):
         if chan in self.chans:
             self.chans[chan].user_quit(user) # send part
         self.inform_links({'src':str(user),'dst':chan,'event':'part'})
-
+    @trace
     def change_nick(self,user,newnick):
         '''
         have user change nickname newnick
@@ -639,9 +643,10 @@ class Server(dispatcher):
         
         self.dbg('user is now %s'%user)
 
+    @trace
     def stop(self):
-        pass
-
+        self.on = False
+    @trace
     def handle_accept(self):
         pair = self.accept()
         if pair is not None:
