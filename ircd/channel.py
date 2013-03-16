@@ -59,8 +59,9 @@ class Channel:
         ''' 
         called when a user joins the channel
         '''
-        if user in self.users:
-            return
+        for u in self.users:
+            if u.nick == user.nick:
+                return
         # add to users in channel
         self.users.append(user)
         

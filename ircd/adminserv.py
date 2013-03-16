@@ -53,12 +53,14 @@ class adminserv(services.Service):
             'kill':self.kline,
             'help':self.send_help,
             'limit':self.limit,
+            'flood':self.set_flood_kill,
+            '?':self.send_help,
             }
 
     def handle_line(self,line):
         class dummy:
             def __init__(self):
-                self.nick = util.get_admin_hash()
+                self.nick = util.get_admin_hash_list()[0]
                 
             def privmsg(self,*args,**kwds):
                 pass
@@ -173,13 +175,13 @@ class adminserv(services.Service):
         """
         set floodkill settings
 
-        interval [number]
-           flood interval
+        interval [float]
+           flood interval in seconds
 
-        bpi [number]
+        bpi [integer]
            bytes per interval
 
-        lpi [number]
+        lpi [integer]
            lines per interval
         """
         resp = []
@@ -191,7 +193,7 @@ class adminserv(services.Service):
             val = None
             if len(args) > 1:
                 try:
-                    val = int(args[1])
+                    val = float(args[1])
                     if val <= 0:
                         raise Exception()
                 except:
@@ -243,7 +245,8 @@ class adminserv(services.Service):
                 resp_hook(str(len(i))+' '+targ+'s')
         else:
             resp_hook('Usage: COUNT [user|chan]')
-        
+    
+    @services.deprecated
     def list(self,args,resp_hook):
         """
         list server objects

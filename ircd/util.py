@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import base64, hashlib, os, hmac, functools, inspect, string
+import base64, hashlib, os, hmac, functools, inspect, string, json
 from functools import wraps
 def _tripcode(data,salt):
     code = ''
@@ -16,9 +16,6 @@ def _tripcode(data,salt):
     code = h.digest()
     return base64.b32encode(code).replace('=','')
 
-def get_admin_hash():
-    with open('admin.hash') as r:
-        return r.read().strip()
 
 def socks_connect(host,port,socks_host):
     s = socket.socket()
@@ -123,6 +120,14 @@ def decorate(func):
    
     return func_wrapper
 
+@deprecate
+def get_admin_hash():
+    with open('admin.hash') as r:
+        return r.read().strip()
+
+def get_admin_hash_list():
+    with open('admins.json') as r:
+        return json.load(r)
 
 tripcode = lambda nick, trip : _tripcode(nick+'|'+trip,_salt)
 i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))

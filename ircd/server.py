@@ -161,6 +161,15 @@ class Server(dispatcher):
         for k in self.configs:
             self.on_new_user(services.services[k](self,config=self.configs[k]))
 
+
+        def ping_loop():
+            while self.on:
+                self.check_ping()
+                sleep(0.5)
+                
+        t = Thread(target=ping_loop,args=())
+        self.threads = [t]
+
     def load_wl(self):
         '''
         load whitelist for mode +P
@@ -168,24 +177,19 @@ class Server(dispatcher):
         with open('whitelist.txt') as f:
             self.whitelist = json.load(f)
 
-    def readable(self):
+    def check_ping(self):
         '''
-        check readable
-        also check for ping timeouts
+        check for ping timeouts
         '''
         tnow = int(now())
-        if tnow % 2 == 0 and not self._check_ping:
-            self._check_ping = False
-            for user in self.handlers:
-                if tnow - user.last_ping_recv > self.pingtimeout:
-                    self.nfo('timeout '+str(user))
-                    self.close_user(user)
-                    self.handlers.remove(user)
-                elif tnow - user.last_ping_send > self.pingtimeout / 2:
-                    user.send_ping()
-        elif tnow % 2 == 1:
-            self._check_ping = True
-        return dispatcher.readable(self)
+        for user in self.handlers:
+            if tnow - user.last_ping_recv > self.pingtimeout:
+                self.nfo('timeout '+str(user))
+                self.close_user(user)
+                self.handlers.remove(user)
+            elif tnow - user.last_ping_send > self.pingtimeout / 2:
+                user.send_ping()
+        
 
     def toggle_debug(self):
         '''

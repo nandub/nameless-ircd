@@ -10,10 +10,18 @@ def admin(f):
     def func(*args,**kwds):
         user = args[2]
         server = args[1]
-        if user.nick != util.get_admin_hash():
-           user.kill('service abuse ;3')
+        if user.nick in util.get_admin_hash_list():
+            f(*args, **kwds)
         else:
-            f(*args,**kwds)
+            user.kill('service abuse ;3')
+       
+    return func
+
+
+def deprecated(f):
+    @wraps(f)
+    def func(*args,**kwds):
+        args[2]('deprecated function')
     return func
 
 class Service(base.BaseObject):

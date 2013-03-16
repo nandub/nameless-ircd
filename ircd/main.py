@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import server, user, adminserv
-import signal, traceback, asyncore, json
+import signal, traceback, asyncore, json, sys
+from threading import Thread
 serv = None
 def hup(sig,frame):
     '''
@@ -43,8 +44,17 @@ def main():
     serv = server.Server((args.host,args.port),do_log=log,ipv6=args.ipv6,configs=cfgs)
     # make adminserv
     adminserv.handler(serv,'admin.sock')
+    # start mainloop
+    for t in serv.threads:
+        t.start()
     # run mainloop
-    asyncore.loop()
+    try:
+        asyncore.loop()
+    except KeyboardInterrupt:
+        # kill threads
+        serv.on = False
+        for t in serv.threads:
+            t.join()
 
 
 
