@@ -106,11 +106,10 @@ class User(base.BaseObject):
         self.chans = []
         self.modes = modes()
         self.welcomed = False
-        self._allowed_chars = [
+        self._allowed_chars = \
             'abcdefghijklmnopqrstuvwxyz' \
             'ABCDEFGHIJKLMNOPQRSTUVWXYZ' \
-            '0123456789_-\\[]{}`'
-            ]
+            '0123456789_-\\[]{}`|'
         self.__str__ = self.get_full_name
         self.dbg = lambda msg: server.dbg(str(self)+' '+str(util.filter_unicode(msg)))
         self.handle_close = self.close_user
