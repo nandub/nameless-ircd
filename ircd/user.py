@@ -106,12 +106,10 @@ class User(base.BaseObject):
         self.chans = []
         self.modes = modes()
         self.welcomed = False
-        self._bad_chars = [
-            '!','@','#','$','%',
-            '^','&','*','(',')',
-            '=','+','/','?','"',
-            "'",'~','.',',',':'
-            ]
+        self._allowed_chars = \
+            'abcdefghijklmnopqrstuvwxyz' \
+            'ABCDEFGHIJKLMNOPQRSTUVWXYZ' \
+            '0123456789_-\\[]{}`|'
         self.__str__ = self.get_full_name
         self.dbg = lambda msg: server.dbg(str(self)+' '+str(util.filter_unicode(msg)))
         self.handle_close = self.close_user
@@ -337,7 +335,7 @@ class User(base.BaseObject):
             trip = util.tripcode(nick[:i],nick[i+1:])
             nick = util.filter_unicode(nick[:i]).replace('?','|')
             for c in nick:
-                if c in self._bad_chars:
+                if c not in self._allowed_chars:
                     self.dbg('bad char '+c)
                     return self._rand_nick(6)
             nick += '|' 
