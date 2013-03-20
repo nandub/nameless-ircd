@@ -48,7 +48,7 @@ class Channel:
         '''
         send topic to user
         '''
-        if self.is_invisible and user not in self.users:
+        if user not in self.users:
             return
         if self.topic is None:
             user.send_num(331,'%s :No topic is set'%self.name)
@@ -61,6 +61,7 @@ class Channel:
         '''
         for u in self.users:
             if u.nick == user.nick:
+                user.send_num('443',str(user)+' '+str(self)+' :is already on channel')
                 return
         # add to users in channel
         self.users.append(user)
@@ -115,12 +116,14 @@ class Channel:
         send WHO to user
         '''
         # mode for channel to send in response
-        mod = '='  or ( self.is_invisible and '@' ) or (self.is_anon and '*' )
-        nicks = ''
+        mod = '=' or self.is_invisible and '@' 
+        nicks = user.nick
         if self.is_anon:
-             nicks = 'nameless'
+             nicks += ' nameless'
         else:
             for u in self.users:
+                if u.nick == user.nick:
+                    continue
                 nicks += ' ' + u.nick    
 
         user.send_num(353,'%s %s :%s'%(mod, self.name,nicks.strip()))
