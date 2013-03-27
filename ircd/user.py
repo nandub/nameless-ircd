@@ -178,7 +178,7 @@ class User(base.BaseObject):
         for chan in self.chans:
             self.part(chan)
         self.server.on_user_closed(self)
-        self.close_when_done()
+        self.close()
 
     def event(self,src,type,msg):
         '''
