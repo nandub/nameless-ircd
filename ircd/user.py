@@ -300,7 +300,7 @@ class User(base.BaseObject):
         call to time out the user and disconnect them
         '''
         self.dbg('timed out')
-        self.close_user()
+        self.handle_close()
 
     def _rand_nick(self,l):
         nick =  base64.b32encode(os.urandom(l)).replace('=','')
