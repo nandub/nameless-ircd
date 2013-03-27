@@ -202,7 +202,7 @@ class Server(dispatcher):
         for user in self.handlers:
             if tnow - user.last_ping_recv > self.pingtimeout:
                 self.nfo('timeout '+str(user))
-                user.close_user()
+                user.timeout()
                 self.handlers.remove(user)
             elif tnow - user.last_ping_send > self.pingtimeout / 2:
                 user.send_ping()
