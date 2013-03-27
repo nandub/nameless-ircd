@@ -439,6 +439,7 @@ class Server(dispatcher):
             self.handlers.remove(user)
         if user.nick in self.users:
             self.users.pop(user.nick)
+        user.close_when_done()
 
     @util.deprecate
     def close_user(self,user):
@@ -455,7 +456,6 @@ class Server(dispatcher):
             user.close_user()
             if user in self.handlers:
                 self.handlers.remove(user)
-            user.close()
             del user
         except:
             self.err(traceback.format_exc())
