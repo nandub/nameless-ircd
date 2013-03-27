@@ -46,7 +46,6 @@ class _user(async_chat):
         self.set_terminator('\r\n')
         self.buffer = ''
         self.lines = []
-        self.hlimit = 20
 
     def collect_incoming_data(self,data):
         
@@ -65,7 +64,7 @@ class _user(async_chat):
         t = int(now())
         self.lines.append((b,t))
         # keep history limit 
-        while len(self.lines) > self.hlimit:
+        while len(self.lines) > self.server.flood_interval * 2:
             self.lines.pop()
 
         # check lines for flood
