@@ -46,7 +46,7 @@ class _user(async_chat):
         self.set_terminator('\r\n')
         self.buffer = ''
         self.lines = []
-        self.hlimit = 50
+        self.hlimit = 20
 
     def collect_incoming_data(self,data):
         
@@ -69,19 +69,18 @@ class _user(async_chat):
             self.lines.pop()
 
         # check lines for flood
-        if self.check_flood(self.lines):
-            if hasattr(self,'kill'):
-                self.kill('floodkill')
-            else:
-                self.close()
+        if hasattr(self,'check_flood') and self.check_flood(self.lines):
+            self.send_msg(':floodserv!service@'+self.server.name+' NOTICE '+str(self)+
+                          " :You Have been ignored for flooding, plz don't kthx")
+            if self.server.flood_kill:
+                if hasattr(self,'kill'):
+                    self.kill('floodkill')
+                else:
+                    self.close()
             return
             
         # inform got line
         self.handle_line(b)
-
-
-    def check_flood(self,lines):
-        return False
 
     def send_msg(self,msg):
         '''
@@ -107,7 +106,13 @@ class User(_user,BaseUser):
     def __init__(self,sock,server):
         BaseUser.__init__(self,server)
         _user.__init__(self,sock)
+        self._check_counter = 0
+        self._check_interval = 5
+        #self.check_flood = lambda lines : self._inc_check_counter() or self._check_counter % self._check_interval == 0 and server.check_flood(lines)
         self.check_flood = server.check_flood
+
+    def _inc_check_counter(self):
+        self._check_counter += 1
 
     def handle_error(self):
         self.server.handle_error()
@@ -123,7 +128,7 @@ class Server(dispatcher):
     main server object
     '''
     @trace
-    def __init__(self,addr,name='nameless',ipv6=False,do_log=False,poni=None,configs={}):
+    def __init__(self,addr,name,ipv6=False,do_log=False,poni=None,configs={}):
         self._no_log = not do_log
         self.poniponi = poni
         dispatcher.__init__(self)
@@ -137,6 +142,16 @@ class Server(dispatcher):
         self.handlers = []
         self.admin = None
         self.name = name
+
+        self.limits = {
+            'nick':5,
+            'topic':5,
+            'privmsg&':5,
+            'privmsg#':5,
+            'join':5,
+            }
+
+        self.flood_kill = False
         
         # flood interval in seconds
         self.flood_interval = 10
@@ -187,7 +202,7 @@ class Server(dispatcher):
         for user in self.handlers:
             if tnow - user.last_ping_recv > self.pingtimeout:
                 self.nfo('timeout '+str(user))
-                self.close_user(user)
+                user.close_user()
                 self.handlers.remove(user)
             elif tnow - user.last_ping_send > self.pingtimeout / 2:
                 user.send_ping()
@@ -218,19 +233,29 @@ class Server(dispatcher):
         '''
         a = {}
         for line , tstamp in lines:
-            tstamp = tstamp / self.flood_interval
+            tstamp /= self.flood_interval
             if tstamp not in a:
-                a[tstamp] = (0,0)
-            d,t = a[tstamp]
-            d += len(line)
-            t += 1
+                d = dict(self.limits)
+                d['bytes'] = 0
+                d['lines'] = 0
+                a[tstamp] = d
+                
+            d = a[tstamp]
+            d['bytes'] += len(line)
+            d['lines'] += 1
             # check for flooding bytes wise
-            if d >= self.flood_bpi:
+            if d['bytes'] >= self.flood_bpi:
                 return True
             # check for flooding line wise
-            elif t >= self.flood_lpi:
+            elif d['lines'] >= self.flood_lpi:
                 return True
-            a[tstamp] = (d,t)
+            # check for flooding command wise
+            for k in self.limits:
+                if line.lower().strip().replace(':','').startswith(k):
+                    d[k] -= 1
+                    if d[k] <= 0:
+                        return True
+        del a
         return False
 
     def nfo(self,msg):
@@ -264,6 +289,7 @@ class Server(dispatcher):
         '''
         user.kill(user)
         self.close_user(user)
+
     @trace
     def infom_links(self,type,src,dst,msg):
         pass
@@ -278,18 +304,18 @@ class Server(dispatcher):
         '''
         self.inform_links('privmsg',user,dest,msg)
         onion = user.nick.endswith('.onion')
-        self.dbg('privmsg %s -> %s -- %s'%(user.nick,dest,
-                                           util.filter_unicode(msg)))
+        # someone is complaining about this
+        # not really needed regardless
+        #self.dbg('privmsg %s -> %s -- %s'%(user.nick,dest,
+        #                                   util.filter_unicode(msg)))
         if (dest[0] in ['&','#'] and not self._has_channel(dest)) or (dest[0] not in ['&','#'] and dest not in self.users):
             user.send_num(401,'%s :No such nick/channel'%dest)
             return
         if dest[0] in ['#','&']: # is a channel ?
             dest =  dest.lower()
-            if dest in user.chans:
-                self.chans[dest].privmsg(user,msg)
+            dest in user.chans and self.chans[dest].privmsg(user,msg)
         else: # not a channel, is a user
-            if dest in self.users:
-                self.users[dest].privmsg(user,msg)
+            dest in self.users and self.users[dest].privmsg(user,msg)
 
     @util.deprecate
     def set_admin(self,user):
@@ -627,12 +653,13 @@ class Server(dispatcher):
         self.users[newnick] = self.users.pop(user.nick)
 
         # users to inform
-        users = {user:0}
+        users = {user:None}
         for chan in user.chans:
             if chan in self.chans:
                 for u in self.chans[chan].users:
                     if u not in users:
-                        users[u] = 0
+                        users[u] = None
+                        
         for u in users:
             u.nick_change(user,newnick)
         self.inform_links({'src':str(user),'dst':newnick,'event':'nick'})
@@ -652,3 +679,6 @@ class Server(dispatcher):
         if pair is not None:
             sock, addr = pair
             self.handlers.append(User(sock,self))
+        
+    def __str__(self):
+        return str(self.name)

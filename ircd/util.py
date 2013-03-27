@@ -138,7 +138,7 @@ def trace(f):
         '''This decorator shows how the function was called'''
         if toggle_trace:
             arg_str=','.join(['%s'%[a] for a in arg]+['%s=%s'%(key,kw[key]) for key in kw])
-            print "%s(%s)" % (f.func_name, arg_str)
+            print ("%s(%s)" % (f.func_name, arg_str))
         return f(*arg, **kw)
     return wrapper
 

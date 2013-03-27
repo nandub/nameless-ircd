@@ -73,10 +73,25 @@ class adminserv(services.Service):
 
     def limit(self,args,resp_hook):
         """
-        limit items
+        rate limit actions, meant to replace ``flood''
+
+        topic
+            topic setting ratelimiting
+
+        nick
+            nickname changing
+
+        privmsg#
+            private messages to # channels
+
+        privmsg&
+            private messages to & channels
+           
+        join
+            channel joining
+
         """
-        resp = []
-        resp.append('topic: '+str(self.server.topic_limit) )
+        resp = [ str(k) + ' : ' + str(v) for k,v in self.server.limits.items() ]
         if len(args) > 0:
             attr = args[0]
             val = None
@@ -88,10 +103,10 @@ class adminserv(services.Service):
                 except:
                     resp_hook('invlaid value: '+args[1])
                     return
-            if attr == 'topic':
+            if attr in self.server.limits:
                 if val is not None:
-                    self.server.topic_limit = val
-                resp = ['topic: '+str(self.server.topic_limit)]
+                    self.server.limits[attr] = val
+                resp = [attr + ' : ' + str(val)]
         for line in resp:
             resp_hook(line)
 
@@ -171,9 +186,13 @@ class adminserv(services.Service):
                 resp_hook('not a number')
         resp_hook('PING: '+str(server.pingtimeout)+' seconds')
 
+    
     def set_flood_kill(self,args,resp_hook):
         """
-        set floodkill settings
+        set flood settings
+        
+        kill
+           toggle kill on flood
 
         interval [float]
            flood interval in seconds
@@ -184,10 +203,12 @@ class adminserv(services.Service):
         lpi [integer]
            lines per interval
         """
-        resp = []
-        resp.append('interval: '+str(self.server.flood_interval) )
-        resp.append('bpi: '+str(self.server.flood_bpi) )
-        resp.append('lpi: '+str(self.server.flood_lpi) )
+        resp = [
+            'kill: '+str(self.server.flood_kill),
+            'interval: '+str(self.server.flood_interval) ,
+            'bpi: '+str(self.server.flood_bpi),
+            'lpi: '+str(self.server.flood_lpi)
+            ]
         if len(args) > 0:
             attr = args[0]
             val = None
@@ -211,6 +232,9 @@ class adminserv(services.Service):
                 if val is not None:
                     self.server.flood_interval = val
                 resp = ['interval: '+str(self.server.flood_interval)]
+            elif attr == 'kill':
+                self.server.flood_kill = not self.server.flood_kill
+                resp = ['kill: '+str(self.server.flood_kill)]
         for line in resp:
             resp_hook(line)
 
@@ -226,10 +250,10 @@ class adminserv(services.Service):
         """
         count server objects
         
-        user
+        users
             count users
 
-        chan
+        chans
             count channels
         """
         if len(args) > 0:
@@ -238,24 +262,35 @@ class adminserv(services.Service):
                 targ = targ.lower()
                 if len(targ) == 0:
                     continue
-                elif targ == 'user':
+                elif targ == 'users':
                     i = self.server.users.values()
-                elif targ == 'chan':
+                elif targ == 'chans':
                     i = self.server.chans.values()
                 resp_hook(str(len(i))+' '+targ+'s')
         else:
             resp_hook('Usage: COUNT [user|chan]')
-    
-    @services.deprecated
+
+    # still useful for debugging
+    # undeprecated for now
+    # adding more functionality 
+    #@services.deprecated
     def list(self,args,resp_hook):
         """
         list server objects
         
-        user
+        users
             list users
 
-        chan
+        chans
             list channels
+
+        chan:&chan
+        chan:#chan
+            list users in channel
+            
+        user:nickname
+            list channels user is in
+
         """
         if len(args) > 0:
             for targ in args:
@@ -263,10 +298,21 @@ class adminserv(services.Service):
                 targ = targ.lower()
                 if len(targ) == 0:
                     continue
-                elif targ == 'user':
+                elif targ == 'users':
                     i = self.server.users
-                elif targ == 'chan':
+                elif targ == 'chans':
                     i = self.server.chans
+                elif targ.count(':') > 0:
+                    ind = targ.index(':')
+                    t1,t2 = targ[ind:], targ[:ind+1]
+                    if t1 == 'chan': 
+                        # list users in channel as seen by server
+                        i = t2 in self.server.chans and self.server.chans[t2].users or []
+                        targ = t1 + ' has user'
+                    elif t1 == 'user':
+                        # list channels user is in as seen by server
+                        i = t2 in self.server.users and self.server.users[t2].chans or []
+                        targ = t1 + ' in channel'
                 for obj in i:
                     resp_hook(targ+': '+str(obj))
         else:

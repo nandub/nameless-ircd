@@ -260,12 +260,6 @@ class User(base.BaseObject):
             self.server.chans[chan].user_quit(self)
 
 
-    def check_topic_ratelimit(self):
-        ret = now() - self.last_topic > self.server.topic_limit
-        self.last_topic = now()
-        return ret
-        
-
 
     def topic(self,channame,msg):
         '''
@@ -275,13 +269,8 @@ class User(base.BaseObject):
         if channame not in self.server.chans:
             return
         chan = self.server.chans[channame]
-        if msg:
-            if self.check_topic_ratelimit():
-                chan.set_topic(self,msg)
-            else:
-                self.kill('topic flood')
-        else:
-            chan.send_topic_to_user(self)
+        chan.set_topic(self,msg)
+        chan.send_topic_to_user(self)
 
     def you_poni_now(self):
         '''

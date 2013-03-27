@@ -27,6 +27,7 @@ def main():
     ap.add_argument('--conf',type=str,help='config file',default=None)
     ap.add_argument('-6',action='store_const',const=True, default=False,dest='ipv6',help='use ipv6')
     ap.add_argument('--trace',action='store_const',const=True,default=False,dest='trace',help='function debug trace')
+    ap.add_argument('--name',type=str,help='server name',default='nameless')
     # parse args
     args = ap.parse_args()
     # check for SIGHUP
@@ -42,9 +43,9 @@ def main():
     else:
         cfgs = {'adminserv' : ''}
     util.toggle_trace = args.trace
-    serv = server.Server((args.host,args.port),do_log=log,ipv6=args.ipv6,configs=cfgs)
+    serv = server.Server((args.host,args.port),args.name,do_log=log,ipv6=args.ipv6,configs=cfgs)
     # make adminserv
-    #adminserv.handler(serv,'admin.sock')
+    adminserv.handler(serv,'admin.sock')
     # start mainloop
     for t in serv.threads:
         t.start()
