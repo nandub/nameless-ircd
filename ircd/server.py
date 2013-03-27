@@ -77,13 +77,10 @@ class _user(async_chat):
                     self.kill('floodkill')
                 else:
                     self.close()
-            return
-            
-        # inform got line
-        self.handle_line(b)
+        else:
+            # inform got line
+            self.handle_line(b)
         
-    def check_flood(self,lines):
-        pass
 
     def send_msg(self,msg):
         '''
@@ -151,7 +148,7 @@ class Server(dispatcher):
             'topic':5,
             'privmsg&':5,
             'privmsg#':5,
-            'join':5,
+            'join':10,
             }
 
         self.flood_kill = False
@@ -256,7 +253,8 @@ class Server(dispatcher):
                 return True
             # check for flooding command wise
             for k in self.limits:
-                if line.lower().strip().replace(':','').startswith(k):
+                line =  line.lower().replace(':',' ').replace(' ','')
+                if line.startswith(k):
                     d[k] -= 1
                     if d[k] <= 0:
                         return True
