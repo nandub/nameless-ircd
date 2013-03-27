@@ -181,7 +181,10 @@ class Server(dispatcher):
 
         def ping_loop():
             while self.on:
-                self.check_ping()
+                try:
+                    self.check_ping()
+                except:
+                    self.handle_error()
                 sleep(5)
                 
         t = Thread(target=ping_loop,args=())
