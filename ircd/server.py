@@ -69,7 +69,7 @@ class _user(async_chat):
             self.lines.pop()
 
         # check lines for flood
-        if hasattr(self,'check_flood') and self.check_flood(self.lines):
+        if self.check_flood(self.lines):
             self.send_msg(':floodserv!service@'+self.server.name+' NOTICE '+str(self)+
                           " :You Have been ignored for flooding, plz don't kthx")
             if self.server.flood_kill:
@@ -81,6 +81,9 @@ class _user(async_chat):
             
         # inform got line
         self.handle_line(b)
+        
+    def check_flood(self,lines):
+        pass
 
     def send_msg(self,msg):
         '''
