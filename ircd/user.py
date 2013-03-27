@@ -112,7 +112,7 @@ class User(base.BaseObject):
             '0123456789_-\\[]{}`|'
         self.__str__ = self.get_full_name
         self.dbg = lambda msg: server.dbg(str(self)+' '+str(util.filter_unicode(msg)))
-        self.handle_close = lambda: self.server.close_user(self)
+        self.handle_close = self.close_user
 
     def handle_error(self):
         self.server.handle_error()
@@ -172,13 +172,13 @@ class User(base.BaseObject):
 
     def close_user(self):
         '''
-        do not call directly
-        use Server.close_user(user) instead
+        close user and expunge cconnection
         '''
         self.dbg('%s closing connection'%self)
         for chan in self.chans:
             self.part(chan)
         self.server.on_user_closed(self)
+        self.close_when_done()
 
     def event(self,src,type,msg):
         '''

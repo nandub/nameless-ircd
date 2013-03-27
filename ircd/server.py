@@ -439,14 +439,11 @@ class Server(dispatcher):
             self.handlers.remove(user)
         if user.nick in self.users:
             self.users.pop(user.nick)
-        user.close_when_done()
 
     @util.deprecate
     def close_user(self,user):
         '''
-        properly call client connection
-        please use this method
-        don't call user.close() , user.close_user() or user.handle_close()
+        DO NOT USE
         '''
         # services do not close
         if user.nick.endswith('serv'):
