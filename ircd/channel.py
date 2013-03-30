@@ -86,7 +86,7 @@ class Channel:
         for u in self.users:
             if user.nick == u.nick:
                 # remove from lists
-                self.users.remove(user)
+                self.users.remove(u)
         # send part to user
         user.event(user,'part',self.name)
         # inform channel if needed

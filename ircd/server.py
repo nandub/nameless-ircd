@@ -628,7 +628,8 @@ class Server(dispatcher):
                 self.part_channel(user,chan.name)
             
                 
-                
+    def on_link_closed(self,link):
+        pass
             
     @trace
     def part_channel(self,user,chan):
