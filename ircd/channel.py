@@ -82,11 +82,11 @@ class Channel:
         '''
         called when a user parts the channel
         '''
-        # check for already in chanenel
-        if user not in self.users:
-            return
-        # remove from lists
-        self.users.remove(user)
+        # check for in channel
+        for u in self.users:
+            if user.nick == u.nick:
+                # remove from lists
+                self.users.remove(user)
         # send part to user
         user.event(user,'part',self.name)
         # inform channel if needed
