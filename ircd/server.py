@@ -119,7 +119,6 @@ class User(_user,BaseUser):
     
     def handle_close(self):
         self.close_user()
-        self.close()
 
 
 class Server(dispatcher):
