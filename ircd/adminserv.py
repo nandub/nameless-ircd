@@ -304,7 +304,7 @@ class adminserv(services.Service):
                     i = self.server.chans
                 elif targ.count(':') > 0:
                     ind = targ.index(':')
-                    t1,t2 = targ[ind+1:], targ[:ind]
+                    t2,t1 = targ[ind+1:], targ[:ind]
                     if t1 == 'chan': 
                         # list users in channel as seen by server
                         i = t2 in self.server.chans and self.server.chans[t2].users or []
