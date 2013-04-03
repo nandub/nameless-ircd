@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import base64, hashlib, os, hmac, functools, inspect, string, json
+import base64, hashlib, os, hmac, functools, inspect, string, json, sys
 from functools import wraps
 def _tripcode(data,salt):
     code = ''
     for digest in ['sha512','sha256']:
         h = hashlib.new(digest)
-        h.update(data)
+        h.update(data.encode('utf-8',errors='replace'))
         h.update(code)
         h.update(salt)
         code = h.digest()
@@ -34,19 +34,22 @@ def socks_connect(host,port,socks_host):
     if d[1] == '\x5a':
         return s , 'Connection Okay'
     elif d[1] == '\x5b':
+
         return None, 'Connection Rejected / Failed'
     else:
         return None, 'Socks Error got response code %s'%[d[1]]
 
 def filter_unicode(data):
     # for marcusw's utf-8 allergies
-    ret = ''
-    for c in str(data):
-        if ord(c) >= 128:
-            ret += '?'
-        else:
-            ret += c
-    return ret
+    # meh nvm
+    return data # data.replace(u'\u200F',u'')
+    #ret = ''
+    #for c in str(data):
+    #    if ord(c) >= 128:
+    #        ret += '?'
+    #    else:
+    #        ret += c
+    #return ret
 
 _salt = 'salt'
 if os.path.exists('salt'):
@@ -54,10 +57,10 @@ if os.path.exists('salt'):
        _salt = s.read()
 
 
-_symbols = ''
-for n in range(128):
-    if n > 0 and chr(n) not in string.letters:
-        _symbols += chr(n)
+#_symbols = ''
+#for n in range(128):
+#    if n > 0 and chr(n) not in string.letters:
+#        _symbols += chr(n)
     
 def filter_message(s,replacement,whitelist):
     s = filter_unicode(s)
@@ -73,7 +76,7 @@ def filter_message(s,replacement,whitelist):
         # does letter have a different "symbolness" than the last
         # then add it to the part list
         if ( ch in _symbols ) ^ is_word:
-            parts.append((last,ch in _symbols))
+            parts.append((last,ch in string.ascii_letters ))
             is_word = not is_word
             last = ''
         last += ch
@@ -138,10 +141,14 @@ def trace(f):
         '''This decorator shows how the function was called'''
         if toggle_trace:
             arg_str=','.join(['%s'%[a] for a in arg]+['%s=%s'%(key,kw[key]) for key in kw])
-            print ("%s(%s)" % (f.func_name, arg_str))
+            print ("%s(%s)" % (f.__name__, arg_str))
         return f(*arg, **kw)
     return wrapper
 
 tripcode = lambda nick, trip : _tripcode(nick+'|'+trip,_salt)
 i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))
 tor_connect = lambda host,port: socks_connect(host,port,('127.0.0.1',9050))
+
+is_version = lambda major,minor : sys.version_info[0] == major and sys.version_info[1] == minor
+
+use_3_3 = is_version(3,3)

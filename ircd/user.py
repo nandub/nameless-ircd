@@ -302,10 +302,10 @@ class User(base.BaseObject):
         self.close_user()
 
     def _rand_nick(self,l):
-        nick =  base64.b32encode(os.urandom(l)).replace('=','')
+        nick =  base64.b32encode(os.urandom(l)).replace(b'=',b'')
         while nick in self.server.users:
-            nick = base64.b32encode(os.urandom(l)).replace('=','')
-        return nick
+            nick = base64.b32encode(os.urandom(l)).replace(b'=',b'')
+        return nick.decode('utf-8')
 
     def send_num(self,num,data):
         '''
@@ -452,7 +452,7 @@ class User(base.BaseObject):
         '''
         called when user changes their nickname to newnick
         '''
-        data = ':'+str(user)+' NICK '+str(newnick)
+        data = ':'+str(user)+' NICK '+newnick
         self.send_raw(data)
 
     def send_msg(self,data):

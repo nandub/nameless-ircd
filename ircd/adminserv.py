@@ -1,38 +1,7 @@
+from asynchat import async_chat
 from asyncore import dispatcher
-import os, socket
+import os, socket, time
 import services, util
-
-class handler(dispatcher):
-    '''
-    adminserv unix socket handler
-    '''
-    def __init__(self,server,path):
-        if os.path.exists(path):
-            os.unlink(path)
-        self.server = server
-        dispatcher.__init__(self)
-        self.nfo = lambda m: self.server.nfo('adminloop: '+str(m))
-        if not hasattr(socket,'AF_UNIX'):
-            self.nfo('not using admin module')
-            return
-        self.create_socket(socket.AF_UNIX,socket.SOCK_DGRAM)
-        self.set_reuse_addr()
-        self.bind(path)
-        self.nfo('adminserv ready')
-
-    def handle_read(self):
-        '''
-        read data and send each line to adminserv
-        '''
-        data = self.recv(1024)
-        try:
-            for line in data.split('\n'):
-                self.nfo('adminserv got line '+line)
-                if 'adminserv' in self.server.users:
-                    self.server.users['adminserv'].handle_line(line)
-        except:
-            self.server.handle_error()
-
 
 
 class adminserv(services.Service):

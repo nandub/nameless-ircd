@@ -43,23 +43,28 @@ class _user(async_chat):
     '''
     def __init__(self,sock):
         async_chat.__init__(self,sock)
-        self.set_terminator('\r\n')
-        self.buffer = ''
+        self.set_terminator(b'\r\n')
+        self.buffer = []
         self.lines = []
-
-    def collect_incoming_data(self,data):
         
-        self.buffer += data
+    def _buffsize(self):
+        ret = 0
+        for part in self.buffer:
+            ret += len(part)
+        return ret
+        
+    def collect_incoming_data(self,data):
+        self.buffer.append(data)
         # if too long close line
-        if len(self.buffer) > 1024:
-            self.close_when_done()
+        if self._buffsize() > 1024: self.close_when_done()
     @trace
     def found_terminator(self):
         '''
         got line
         '''
-        b = self.buffer
-        self.buffer = ''
+        b = b''.join(self.buffer)
+        b = b.decode('utf-8',errors='replace')
+        self.buffer = []
         # flood control
         t = int(now())
         self.lines.append((b,t))
@@ -77,7 +82,7 @@ class _user(async_chat):
                 else:
                     self.close()
         else:
-            # inform got line
+           # inform got line
             self.handle_line(b)
         
 
@@ -88,13 +93,15 @@ class _user(async_chat):
         # filter unicode
         msg = util.filter_unicode(msg)
         # screw unicode :p
-        self.ascii_send_msg(msg.encode('ascii'))
+        # or not
+        self.send_bytes(msg.encode('utf-8',errors='replace'))
     @trace
-    def ascii_send_msg(self,msg):
+    def send_bytes(self,msg):
         '''
         push a line to be sent
         '''
-        self.push(msg+'\r\n')
+        self.push(msg)
+        self.push(b'\r\n')
 
 
 class User(_user,BaseUser):
@@ -119,7 +126,13 @@ class User(_user,BaseUser):
     
     def handle_close(self):
         self.close_user()
+        
+    def __str__(self):
+        return self.get_full_name()
+        
 
+    def __unicode__(self):
+        return unicode(self.get_full_name(),'utf-8')
 
 class Server(dispatcher):
     '''
@@ -167,6 +180,11 @@ class Server(dispatcher):
         self._check_ping = True
         self.whitelist = []
         self._check_ping = True
+        if util.use_3_3:
+            self.handle_accepted = self._accepted_3_3
+        else:
+            self.handle_accept = self._accepted_2_7
+
         try:
             self.load_wl()
         except:
@@ -350,7 +368,7 @@ class Server(dispatcher):
     def _log(self,type,msg):
         if self._no_log and type.lower() not in ['nfo','err','ftl']:
             return
-        print type, msg
+        print (type + ' ' + msg)
         
         #with open('log/server.log','a') as f:
         #    f.write('[%s -- %s] %s\n'%(type,now(),msg))
@@ -420,7 +438,7 @@ class Server(dispatcher):
                 a.write('\n')
         except:
              traceback.print_exc()
-
+    
     @trace
     def handle_error(self):
         '''
@@ -428,6 +446,8 @@ class Server(dispatcher):
         '''
         #traceback.print_exc()
         self.err(traceback.format_exc())
+    
+
     @trace
     def on_user_closed(self,user):
         '''
@@ -625,7 +645,7 @@ class Server(dispatcher):
             for user in chan.users: # inform part
                 self.part_channel(user,chan.name)
             
-                
+    @trace
     def on_link_closed(self,link):
         pass
             
@@ -643,7 +663,7 @@ class Server(dispatcher):
         '''
         have user change nickname newnick
         '''
-        self.dbg('server nick change %s -> %s' % (user.nick,newnick))
+        self.dbg('server nick change '+user.nick+' -> '+newnick)
         if len(newnick) > 30 or newnick in self.users: # nickname too long
             newnick = user.do_nickname('')
 
@@ -673,8 +693,13 @@ class Server(dispatcher):
     @trace
     def stop(self):
         self.on = False
+    
     @trace
-    def handle_accept(self):
+    def _accepted_3_3(self,sock,addr):
+        self.handlers.append(User(sock,self))
+        
+    @trace
+    def _accepted_2_7(self):
         pair = self.accept()
         if pair is not None:
             sock, addr = pair
@@ -682,3 +707,4 @@ class Server(dispatcher):
         
     def __str__(self):
         return str(self.name)
+    

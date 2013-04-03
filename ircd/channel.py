@@ -79,22 +79,25 @@ class Channel:
         self.send_who(user)
 
 
-    def part_user(self,nick,reason='quitting'):
-        user.nick == nick and self._user_quit(user,reason) for user in self.users
+    def part_user(self,nick,reason='durr'):
+        for user in self.users:
+            if user.nick == nick: return self._user_quit(user,reason)
+            
+
 
     def _user_quit(self,user,reason):
         '''
         called when a user parts the channel
         '''
         # remove from channel
-        self.users.remove(user) if user in self.users
+        if user in self.users: self.users.remove(user) 
         # send part to user
-        user.event(user,'part',reason,dst=self.name)
+        user.action(user,'part',reason,dst=self.name)
         # inform channel if needed
         if not self.is_anon: # case non anon channel
             for u in self.users:
                 # send part to all users
-                u.event(user,'part',reason,dst=self.name)
+                u.action(user,'part',reason,dst=self.name)
         # expunge empty channel
         if self.empty():
             self.server.remove_channel(self.name)
