@@ -318,16 +318,17 @@ class User(base.BaseObject):
         do not call directly
         '''
         if '#' in nick:
-            nick = nick.strip()
-            i = nick.index('#')
+            nick = nick.strip().encode('utf-8',errors='replace')
+            i = nick.index(b'#')
             trip = util.tripcode(nick[:i],nick[i+1:])
-            nick = util.filter_unicode(nick[:i]).replace('?','|')
+            nick = util.filter_unicode(nick[:i]).replace(b'?',b'|')
             for c in nick:
-                if c not in self._allowed_chars:
+                if chr(c) not in self._allowed_chars:
                     self.dbg('bad char '+c)
                     return self._rand_nick(6)
-            nick += '|' 
-            return nick + trip[:len(trip)/2]        
+            nick += b'|' 
+            i = int(len(trip) / 2)
+            return (nick + trip[:i]).decode('utf-8',errors='replace')
         return self._rand_nick(6)
 
     def handle_line(self,inbuffer):
