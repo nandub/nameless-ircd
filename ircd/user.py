@@ -256,7 +256,7 @@ class User(base.BaseObject):
         if chan in self.chans:
             self.chans.remove(chan)
         if chan in self.server.chans:
-            self.server.chans[chan].user_quit(self)
+            self.server.chans[chan].part_user(self.nick)
 
 
 
