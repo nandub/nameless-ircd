@@ -299,7 +299,27 @@ class User(base.BaseObject):
             for c in ch[1:]:
                 self.modes[c] = ch[0] in '+-' and ch[0] or '-'
                 self.send_raw(':%s MODE %s :%s'%(self.nick,self.nick,self.modes[c]))
+            if ch == '+T':
+                if self.trip is not None:
+                    self.send_raw(':'+self.get_full_name()+' NICK '+self.trip)
 
+                    for chan in self.chans:
+                        if chan in self.server.chans:
+                            chan = self.server.chans[chan]
+                            if chan.is_anon:
+                                continue
+                        chan.add_trip(self)
+            elif ch == '-T':
+                if self.trip is not None:
+                    self.send_raw(':'+self.get_full_trip()+' NICK '+self.id)
+
+                    for chan in self.chans:
+                        if chan in self.server.chans:
+                            chan = self.server.chans[chan]
+                            if chan.is_anon:
+                                continue
+                        chan.remove_trip(self)
+     
     def timeout(self):
         '''
         call to time out the user and disconnect them

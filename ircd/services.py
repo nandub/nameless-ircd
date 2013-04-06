@@ -160,7 +160,7 @@ class tripserv(Service):
 # from tcserv import tcserv
 from adminserv import adminserv
 services = {
-    'tripserv':tripserv,
+    #'tripserv':tripserv,
     'adminserv':adminserv,
     #'linkserv':linkserv,
     #'tcserv':tcserv
