@@ -309,10 +309,10 @@ class User(base.BaseObject):
                             if chan.is_anon:
                                 continue
                         chan.add_trip(self)
-            elif ch[1] == 'T':
+            elif ch == '-T':
                 if self.trip is not None:
-                    self.send_raw(':'+self.trip+' NICK '+self.id)
-
+                    self.send_raw(':'+self.get_full_trip()+' NICK '+self.id)
+                    
                     for chan in self.chans:
                         if chan in self.server.chans:
                             chan = self.server.chans[chan]
@@ -402,7 +402,7 @@ class User(base.BaseObject):
     def got_mode(self,args):        
         if args[0][0] in ['&','#']: #channel mode
             if args[0] in self.chans:
-                self.send_num(324,args[0]+' +')
+                self.set_mode(args[2])
         elif len(args) == 2: #user mode
             if args[0] == self.nick:
                 self.set_mode(args[1])
