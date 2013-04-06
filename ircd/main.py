@@ -43,7 +43,7 @@ def main():
         with open(args.conf) as r:
             cfgs = json.load(r)
     else:
-        cfgs = {'tripserv':''}
+        cfgs = {}
     if args.admin:
         cfgs['adminserv'] = ''
     util.toggle_trace = args.trace
