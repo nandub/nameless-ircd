@@ -10,7 +10,7 @@ def admin(f):
     def func(*args,**kwds):
         user = args[2]
         server = args[1]
-        if user.nick in util.get_admin_hash_list():
+        if user.trip in util.get_admin_hash_list():
             f(*args, **kwds)
         else:
             user.kill('service abuse ;3')
@@ -52,6 +52,11 @@ class Service(base.BaseObject):
     def serve(self,server,user,msg,resp_hook):
         cmd = msg.lower().split(' ')[0]
         args = msg.split(' ')[1:]
+        if isinstance(user,str):
+            for u in self.server.users.values():
+                if u.trip == user:
+                    user = u
+                    break
         if cmd in self.cmds:
             self.cmds[cmd](user,args,resp_hook)
         else:
