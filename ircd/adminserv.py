@@ -30,7 +30,8 @@ class adminserv(services.Service):
         class dummy:
             def __init__(self):
                 self.nick = util.get_admin_hash_list()[0]
-                
+                self.trip = nick
+
             def privmsg(self,*args,**kwds):
                 pass
         self.privmsg(dummy(),line)

@@ -161,6 +161,8 @@ class User(base.BaseObject):
         recieve private message from source src with contents msg
         if dst is not None the destination is a channel
         '''
+        if src == self.get_full_trip():
+            return
         if 'P' in self.modes and dst is not None:
             msg = self.filter_message(msg)
         self.action(src,'privmsg',msg,dst=dst)
