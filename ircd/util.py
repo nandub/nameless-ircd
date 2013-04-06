@@ -2,8 +2,10 @@
 
 import base64, hashlib, os, hmac, functools, inspect, string, json, sys
 from functools import wraps
-def _tripcode(data,salt):
+def _tripcode(user,secret,salt):
     code = b''
+    data = str(user)
+    data += '|'+str(secret)
     for digest in ['sha512','sha256']:
         h = hashlib.new(digest)
         h.update(data.encode('utf-8',errors='replace'))
@@ -14,7 +16,9 @@ def _tripcode(data,salt):
     h = hmac.new(salt)
     h.update(code)
     code = h.digest()
-    return base64.b32encode(code).replace(b'=',b'')
+    trip = base64.b32encode(code).replace(b'=',b'')
+    trip = trip[ int( len(trip) / 2 ) :]
+    return (user+b'|'+trip).decode('utf-8',errors='replace')
 
 
 def socks_connect(host,port,socks_host):
@@ -145,7 +149,7 @@ def trace(f):
         return f(*arg, **kw)
     return wrapper
 
-tripcode = lambda nick, trip : _tripcode(str(nick)+'|'+str(trip),_salt)
+tripcode = lambda nick, trip : _tripcode(nick,trip,_salt)
 i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))
 tor_connect = lambda host,port: socks_connect(host,port,('127.0.0.1',9050))
 

@@ -101,6 +101,9 @@ class User(base.BaseObject):
         self.last_ping_send = 0
         self.usr = ''
         self.name = ''
+        self.nick = ''
+        self.trip = None
+        self.id = self._rand_nick(6)
         self.last_ping = 0
         self.last_topic = 0
         self.chans = []
@@ -229,6 +232,8 @@ class User(base.BaseObject):
     def chanserv(self,msg):
         self.send_notice('chanserv!chanserv@'+str(self.server.name),msg)
 
+    def get_full_trip(self):
+        return self.trip + '!tripfag@'+self.server.name
 
     def join(self,chan):
         '''
@@ -256,8 +261,7 @@ class User(base.BaseObject):
         if chan in self.chans:
             self.chans.remove(chan)
         if chan in self.server.chans:
-            self.server.chans[chan].part_user(self.nick)
-
+            self.server.chans[chan].part_user(self)
 
 
     def topic(self,channame,msg):
@@ -265,7 +269,7 @@ class User(base.BaseObject):
         called when TOPIC is recieved
         '''
         channame = channame.lower()
-        if channame not in self.server.chans:
+        if channame not in self.server.chans or channame not in self.chans:
             return
         chan = self.server.chans[channame]
         chan.set_topic(self,msg)
@@ -317,19 +321,7 @@ class User(base.BaseObject):
         '''
         do not call directly
         '''
-        if '#' in nick:
-            nick = nick.strip().encode('utf-8',errors='replace')
-            i = nick.index(b'#')
-            trip = util.tripcode(nick[:i],nick[i+1:])
-            nick = util.filter_unicode(nick[:i]).replace(b'?',b'|')
-            for c in nick:
-                if chr(c) not in self._allowed_chars:
-                    self.dbg('bad char '+c)
-                    return self._rand_nick(6)
-            nick += b'|' 
-            i = int(len(trip) / 2)
-            return (nick + trip[:i]).decode('utf-8',errors='replace')
-        return self._rand_nick(6)
+        return self.id
 
     def handle_line(self,inbuffer):
         '''
@@ -371,11 +363,10 @@ class User(base.BaseObject):
         self.dbg('got nick: %s'%args[0])
         nick = self.do_nickname(args[0])
         if not self.welcomed and len(self.nick) == 0:
-            self.nick = args[0]
-            self.usr = args[0]
-        else:
+            self.nick = nick
+            self.usr = 'user'
+        elif nick != self.id:
             self.server.change_nick(self,nick)
-
     @require_min_args(4)
     def got_user(self,args):
         self.server.on_new_user(self)
@@ -408,15 +399,23 @@ class User(base.BaseObject):
         msg = args[-1]
         target = args[0]
         dest = None
+        src = self
+        if 'T' in self.modes:
+            src = self.get_full_trip()
         if target[0] in ['&','#']:
             if target in self.chans or target in self.server.chans:
                 dest = self.server.chans[target]
-        elif target in self.server.users:
+        else:
+            if target in self.server.users:
                 dest = self.server.users[target]
+            else:
+                for user in self.server.users.values():
+                    if hasattr(user,'trip') and user.trip == target:
+                        dest = user
         if dest is None:
             self.send_num(401,target+' :No such nick/channel')
         else:
-            dest.privmsg(self,msg)
+            dest.privmsg(src,msg)
             
     @registered
     @require_min_args(1)

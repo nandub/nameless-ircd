@@ -40,7 +40,7 @@ class adminserv(services.Service):
         services.Service.serve(self,server,user,line,resp_hook)
 
 
-    def limit(self,args,resp_hook):
+    def limit(self,user,args,resp_hook):
         """
         rate limit actions, meant to replace ``flood''
 
@@ -80,7 +80,7 @@ class adminserv(services.Service):
             resp_hook(line)
 
 
-    def send_help(self,args,resp_hook):
+    def send_help(self,user,args,resp_hook):
         """
         show help message
         """
@@ -92,14 +92,14 @@ class adminserv(services.Service):
                 resp_hook('-- '+line)
             resp_hook(' ')
 
-    def toggle_debug(self,args,resp_hook):
+    def toggle_debug(self,user,args,resp_hook):
         """
         toggle server debug mode
         """
         self.server.toggle_debug()
         resp_hook('DEBUG: %s' % self.server.debug())
 
-    def nerf_user(self,args,resp_hook):
+    def nerf_user(self,user,args,resp_hook):
         """
         set mode +P on one or more users
         """
@@ -109,7 +109,7 @@ class adminserv(services.Service):
                 u.set_mode('+P')
                 u.lock_modes()
                 resp_hook('set mode +P on '+u.nick)
-    def denerf_user(self,args,resp_hook):
+    def denerf_user(self,user,args,resp_hook):
         """
         unset mode +P on one or more users
         """
@@ -120,7 +120,7 @@ class adminserv(services.Service):
                 u.set_mode('-P')
                 resp_hook('set mode -P on '+u.nick)
 
-    def nerf_all(self,args,resp_hook):
+    def nerf_all(self,user,args,resp_hook):
         """
         set +P on every user
         """
@@ -130,7 +130,7 @@ class adminserv(services.Service):
             u.lock_modes()
         resp_hook('GLOBAL +P')
 
-    def denerf_all(self,args,resp_hook):
+    def denerf_all(self,user,args,resp_hook):
         """
         unset -P on every user
         """
@@ -140,7 +140,7 @@ class adminserv(services.Service):
             u.set_mode('-P')
         resp_hook('GLOBAL -P')
 
-    def set_ping(self,args,resp_hook):
+    def set_ping(self,user,args,resp_hook):
         """
         set ping timeout
         """
@@ -156,7 +156,7 @@ class adminserv(services.Service):
         resp_hook('PING: '+str(server.pingtimeout)+' seconds')
 
     
-    def set_flood_kill(self,args,resp_hook):
+    def set_flood_kill(self,user,args,resp_hook):
         """
         set flood settings
         
@@ -207,7 +207,7 @@ class adminserv(services.Service):
         for line in resp:
             resp_hook(line)
 
-    def send_global(self,args,resp_hook):
+    def send_global(self,user,args,resp_hook):
         """
         send global message to all users
         """
@@ -215,7 +215,7 @@ class adminserv(services.Service):
         self.server.send_global(msg)
         resp_hook('GLOBAL: %s'%msg)
     
-    def count(self,args,resp_hook):
+    def count(self,user,args,resp_hook):
         """
         count server objects
         
@@ -243,7 +243,7 @@ class adminserv(services.Service):
     # undeprecated for now
     # adding more functionality 
     #@services.deprecated
-    def list(self,args,resp_hook):
+    def list(self,user,args,resp_hook):
         """
         list server objects
         
@@ -287,7 +287,7 @@ class adminserv(services.Service):
         else:
             resp_hook('Usage: LIST [user|chan]')
 
-    def kline(self,args,resp_hook):
+    def kline(self,user,args,resp_hook):
         """
         kill one or more user's connections
         """

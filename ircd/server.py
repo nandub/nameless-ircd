@@ -455,6 +455,11 @@ class Server(dispatcher):
         '''
         if user.nick.endswith('serv'):
             return
+        for chan in self.chans:
+            chan = self.chans[chan]
+            for u in chan.users:
+                if u.id == user.id:
+                    chan.part_user(user)
         if user in self.handlers:
             self.handlers.remove(user)
         if user.nick in self.users:
@@ -639,17 +644,14 @@ class Server(dispatcher):
         '''
         remove channel
         '''
-        chan = chan.lower()
-        if chan in self.chans:
-            chan = self.chans[chan]
-            for user in chan.users: # inform part
-                self.part_channel(user,chan.name)
+        if chan in self.chans and self.chans[chan].empty():
+            self.chans.pop(chan)
             
     @trace
     def on_link_closed(self,link):
         pass
             
-    @trace
+    @util.deprecate
     def part_channel(self,user,chan):
         '''
         have a user part a channel with name chan

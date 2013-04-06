@@ -43,7 +43,9 @@ def main():
         with open(args.conf) as r:
             cfgs = json.load(r)
     else:
-        cfgs = {'adminserv' : ''}
+        cfgs = {'tripserv':''}
+    if args.admin:
+        cfgs['adminserv'] = ''
     util.toggle_trace = args.trace
     serv = server.Server((args.host,args.port),args.name,do_log=log,ipv6=args.ipv6,configs=cfgs)
     # make adminserv

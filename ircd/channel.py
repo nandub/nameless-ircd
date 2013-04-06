@@ -13,6 +13,7 @@ class Channel:
         # is invisible means that parts and joins are not relayed and the 
         # channel is not in the server channel list
         self.is_invisible = self.name[1] == '.'
+        self._trips = {}
         
     def set_topic(self,user,topic):
         '''
@@ -44,6 +45,19 @@ class Channel:
         for user in self.users:
             self.send_topic_to_user(user)
 
+
+    def add_trip(self,user):
+        if user.id not in self._trips:
+            self._trips[user.id] = []
+        self._trips[user.id].append(user.get_full_trip())
+        self.send_raw(':'+user.get_full_trip()+' JOIN '+self.name)
+
+    def remove_trip(self,user):
+        if user.id in self._trips:
+            for trip in self._trips[user.id]:
+                self._inform_part(trip,'durr')
+            self._trips[user.id] = []
+        
     def send_topic_to_user(self,user):
         '''
         send topic to user
@@ -79,25 +93,30 @@ class Channel:
         self.send_who(user)
 
 
-    def part_user(self,nick,reason='durr'):
-        for user in self.users:
-            if user.nick == nick: return self._user_quit(user,reason)
-            
+    def part_user(self,user,reason='durr'):
+        self._user_quit(user,reason)
 
+    def _inform_part(self,user,reason):
+        if not self.is_anon: # case non anon channel
+            for u in self.users:
+                # send part to all users
+                u.action(user,'part',reason,dst=self.name)
+        
 
     def _user_quit(self,user,reason):
         '''
         called when a user parts the channel
         '''
         # remove from channel
-        if user in self.users: self.users.remove(user) 
+        if user in self.users: 
+            self.users.remove(user) 
+        if user.id in self._trips:
+            for trip in self._trips[user.id]:
+                self._inform_part(trip,reason)
         # send part to user
         user.action(user,'part',reason,dst=self.name)
+        self._inform_part(user,reason)
         # inform channel if needed
-        if not self.is_anon: # case non anon channel
-            for u in self.users:
-                # send part to all users
-                u.action(user,'part',reason,dst=self.name)
         # expunge empty channel
         if self.empty():
             self.server.remove_channel(self.name)
@@ -114,7 +133,7 @@ class Channel:
                 src = str(orig)
             # send privmesg
             user.privmsg(src,msg,dst=self)
-
+        
     def send_who(self,user):
         '''
         send WHO to user

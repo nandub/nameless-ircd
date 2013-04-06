@@ -53,7 +53,7 @@ class Service(base.BaseObject):
         cmd = msg.lower().split(' ')[0]
         args = msg.split(' ')[1:]
         if cmd in self.cmds:
-            self.cmds[cmd](args,resp_hook)
+            self.cmds[cmd](user,args,resp_hook)
         else:
             resp_hook('no such command: '+str(cmd))
 
@@ -74,51 +74,88 @@ class Service(base.BaseObject):
         return self.get_full_name()
 
 class tripserv(Service):
-    @util.deprecate
-    def __init__(self,server):
+    
+    def __init__(self,server,config=None):
         Service.__init__(self,server)
         self.nick = self.__class__.__name__
-        self._help = 'Useage: /msg tripserv username#tripcode'
+        self.cmds = {
+            '?':self._help,
+            'help':self._help,
+            'trip':self._set_trip,
+            'on':self._trip_on,
+            'off':self._trip_off
+            }
+        self.mapping = {}
+
+    def _help(self,user,args,hook):
+        '''
+        print help statement
+        '''
+        if len(args) == 0:
+            hook('help items: '+' '.join(self.cmds.keys()))
+        else:
+            for arg in args:
+                if arg in self.cmds:
+                    hook(arg)
+                    for line in self.cmds[arg].__doc__.split('\n'):
+                        hook(line)
+    def _set_trip(self,user,args,hook):
+        '''
+        set tripcode in format user#trip
+        '''
+        if len(args) == 0:
+            hook('current tripcode: '+str(user.trip))
+        else:
+            self.trip_off(user)
+            name , trip = tuple(args[0].split('#'))
+            user.trip = self.do_trip(bytes(name+'#'+trip,'utf-8'))
+
+    def _trip_on(self,user,args,hook):
+        '''
+        toggle tripcode on globally
+        '''
+        if user.trip is None:
+            hook('please set tripcode first')
+            return
+        self.trip_on(user)
+
+
+    def do_trip(self,nick):
+        i = nick.index(b'#')
+        return util.tripcode(nick[:i],nick[i+1:])
+
+
+    def trip_on(self,user):
+        for chan in user.chans:
+            if chan in self.server.chans:
+                chan = self.server.chans[chan]
+                if chan.is_anon:
+                    continue
+                chan.add_trip(user)    
+    
+    def _trip_off(self,user,args,hook):
+        '''
+        turn tripcode off globally
+        '''
+        self.trip_off(user)
+
+    def trip_off(self,user):
+        for chan in user.chans:
+            if chan in self.server.chans:
+                chan = self.server.chans[chan]
+                if chan.is_anon:
+                    continue
+                chan.remove_trip(user)
+        
 
     def hash_trip(self,name,trip):
         return tripcode(name,trip)
         # return '%s|%s!tripcode@nameless'%(name,tripcode(trip,self.salt))
 
-    def serve(self,server,user,msg):
-        while True:
-            pmsg = msg.replace('  ',' ')
-            if msg == pmsg:
-                break
-            msg = pmsg
-
-        if msg.strip() == 'off':
-            self.server.change_nick(user,user._rand_nick(6))
-            return
-        p = msg.split(' ')
-        if len(p) < 1:
-            user.privmsg(self,self._help)
-            return
-        
-        msg = ''
-        if p[0].count('#') != 1:
-            user.privmsg(self,'User tripcode format: user#tripcode')
-            return
-        pp = p[0].split('#')
-        if len(pp) > 1:
-            self.tripcode(user,pp[0],pp[1])
-        else:
-            user.privmsg(self,'bad tripcode format')
-
-    def tripcode(self,user,name,code):
-        trip = self.hash_trip(name,code)
-        l = len(trip)
-        trip = trip[:l/2]
-        self.server.change_nick(user,'%s|%s'%(name,trip))
-
 # from tcserv import tcserv
 from adminserv import adminserv
 services = {
-    #'tripserv':tripserv, # tripserv deprecated
+    'tripserv':tripserv,
     'adminserv':adminserv,
     #'linkserv':linkserv,
     #'tcserv':tcserv
