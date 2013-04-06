@@ -309,7 +309,7 @@ class User(base.BaseObject):
                             if chan.is_anon:
                                 continue
                         chan.add_trip(self)
-            elif ch == '-T':
+            elif ch[1] == 'T':
                 if self.trip is not None:
                     self.send_raw(':'+self.get_full_trip()+' NICK '+self.id)
 
@@ -347,8 +347,6 @@ class User(base.BaseObject):
             i = nick.index('#')
             nick = nick.encode('utf-8',errors='replace')
             self.trip = util.tripcode(nick[:i],nick[i+1:])
-            self.send_notice('tripserv!serivce@'+self.server.name,
-                             'tripcode set, use "/m tripserv on" to activate it ')
         return self.id
 
     def handle_line(self,inbuffer):
