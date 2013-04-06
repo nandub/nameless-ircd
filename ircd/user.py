@@ -321,6 +321,10 @@ class User(base.BaseObject):
         '''
         do not call directly
         '''
+        if nick.count('#') > 0:
+            i = nick.index('#')
+            self.trip = util.tripcode(nick[i:],nick[:i+1])
+            self.notice('tripserv!serivce@'+self.server.name,'tripcode set')
         return self.id
 
     def handle_line(self,inbuffer):
@@ -365,8 +369,7 @@ class User(base.BaseObject):
         if not self.welcomed and len(self.nick) == 0:
             self.nick = nick
             self.usr = 'user'
-        elif nick != self.id:
-            self.server.change_nick(self,nick)
+            
     @require_min_args(4)
     def got_user(self,args):
         self.server.on_new_user(self)
