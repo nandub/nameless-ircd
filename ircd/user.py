@@ -311,7 +311,7 @@ class User(base.BaseObject):
                         chan.add_trip(self)
             elif ch[1] == 'T':
                 if self.trip is not None:
-                    self.send_raw(':'+self.get_full_trip()+' NICK '+self.id)
+                    self.send_raw(':'+self.trip+' NICK '+self.id)
 
                     for chan in self.chans:
                         if chan in self.server.chans:
