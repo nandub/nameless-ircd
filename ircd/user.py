@@ -301,8 +301,8 @@ class User(base.BaseObject):
                 self.send_raw(':%s MODE %s :%s'%(self.nick,self.nick,self.modes[c]))
             if ch == '+T':
                 if self.trip is not None:
-                    self.send_raw(':'+self.get_full_name()+' NICK '+self.trip)
-
+                    self.send_notice('tripserv!tripserv@'+self.server.name,
+                                     'trip on')
                     for chan in self.chans:
                         if chan in self.server.chans:
                             chan = self.server.chans[chan]
@@ -311,8 +311,8 @@ class User(base.BaseObject):
                         chan.add_trip(self)
             elif ch == '-T':
                 if self.trip is not None:
-                    self.send_raw(':'+self.get_full_trip()+' NICK '+self.id)
-                    
+                    self.send_notice('tripserv!tripserv@'+self.server.name,
+                                     'trip off')
                     for chan in self.chans:
                         if chan in self.server.chans:
                             chan = self.server.chans[chan]
