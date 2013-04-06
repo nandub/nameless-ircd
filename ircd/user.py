@@ -427,7 +427,7 @@ class User(base.BaseObject):
         target = args[0]
         dest = None
         src = self
-        if 'T' in self.modes:
+        if 'T' in self.modes and self.trip is not None:
             src = self.get_full_trip()
         if target[0] in ['&','#']:
             if target in self.chans or target in self.server.chans:
