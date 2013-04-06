@@ -403,7 +403,8 @@ class User(base.BaseObject):
     def got_mode(self,args):        
         if args[0][0] in ['&','#']: #channel mode
             if args[0] in self.chans:
-                self.set_mode(args[2])
+                if len(args) == 3:
+                    self.set_mode(args[2])
         elif len(args) == 2: #user mode
             if args[0] == self.nick:
                 self.set_mode(args[1])
