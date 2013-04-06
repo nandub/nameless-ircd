@@ -323,8 +323,10 @@ class User(base.BaseObject):
         '''
         if nick.count('#') > 0:
             i = nick.index('#')
-            self.trip = util.tripcode(nick[i:],nick[:i+1])
-            self.notice('tripserv!serivce@'+self.server.name,'tripcode set')
+            nick = nick.encode('utf-8',errors='replace')
+            self.trip = util.tripcode(nick[:i],nick[i+1:])
+            self.send_notice('tripserv!serivce@'+self.server.name,
+                             'tripcode set, use "/m tripserv on" to activate it ')
         return self.id
 
     def handle_line(self,inbuffer):
