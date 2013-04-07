@@ -351,7 +351,7 @@ class User(base.BaseObject):
             nick = nick.encode('utf-8',errors='replace')
             self.trip = util.tripcode(nick[:i],nick[i+1:])
             self.send_notice('tripserv!tripserv@'+self.server.name,
-                             'tripcode set')
+                             'tripcode set to '+self.trip)
         return self.id
 
     def handle_line(self,inbuffer):
