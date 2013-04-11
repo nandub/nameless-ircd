@@ -437,7 +437,7 @@ class User(base.BaseObject):
             if target in self.chans or target in self.server.chans:
                 dest = self.server.chans[target]
                 if self.link is not None:
-                    self.link.privmsg(self,dest,msg)
+                    self.link.privmsg(src,dest,msg)
         else:
             if target in self.server.users:
                 dest = self.server.users[target]

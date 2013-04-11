@@ -54,6 +54,8 @@ class Channel:
             self._trips[user.id] = []
         self._trips[user.id].append(user.get_full_trip())
         self.send_raw(':'+user.get_full_trip()+' JOIN '+self.name)
+        if self.link is not None:
+            self.link.join(user.get_full_trip(),self.name)
 
     def remove_trip(self,user):
         if user.id in self._trips:
@@ -101,14 +103,14 @@ class Channel:
 
     def part_user(self,user,reason='durr'):
         self._user_quit(user,reason)
-        if self.link is not None:
-            self.link.part(user,self.name,dst=reason)
 
     def _inform_part(self,user,reason):
         if not self.is_anon: # case non anon channel
             for u in self.users:
                 # send part to all users
                 u.action(user,'part',reason,dst=self.name)
+            if self.link is not None:
+                self.link.part(user,self.name,dst=reason)
         
 
     def _user_quit(self,user,reason):
