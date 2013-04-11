@@ -104,7 +104,7 @@ class _user(async_chat):
             self.push(msg)
             self.push(b'\r\n')
         except:
-            self.nfo('failed to send line')
+            self.server.nfo('failed to send line')
 
 class User(_user,BaseUser):
     '''
