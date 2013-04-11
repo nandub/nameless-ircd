@@ -10,7 +10,7 @@ class link(async_chat):
     generic link
     """
 
-    def __init__(self,sock,addr,parent,relay=False,accept=False):
+    def __init__(self,sock,addr,parent,relay=True,accept=False):
         self.addr = str(addr)
         self.parent = parent
         self.server = parent.server
