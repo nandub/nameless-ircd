@@ -147,7 +147,10 @@ class link(async_chat):
 
     @trace
     def on_line(self,line):
-        print (line)
+        for link in self.parent.links:
+            if link == self:
+                continue
+            self.send_line(line)
         sparts = line[1:].split(' ')
         if len(sparts) > 2:
             src, action, dst = tuple(sparts[:3])
@@ -223,7 +226,6 @@ class linkserv(dispatcher):
     def on_link_closed(self,link):
         if link in self.links:
             self.links.remove(link)
-        self.server.on_link_closed(self,link)
 
     def handle_error(self):
         self.server.handle_error()

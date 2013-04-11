@@ -158,6 +158,11 @@ class Channel:
                 nicks += ' ' + u.nick    
 
         user.send_num(353,'%s %s :%s'%(mod, self.name,nicks.strip()))
+        nicks = ''
+        for u in self.remotes:
+            nicks += u.split('!')[0]
+            nicks += ' '
+        user.send_num(353,'%s %s :%s'%(mod, self.name,nicks.strip()))
         user.send_num(366,'%s :End of NAMES list'%self.name)
 
     def join_remote_user(self,name):
