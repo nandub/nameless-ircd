@@ -281,6 +281,7 @@ class Server(dispatcher):
     def nfo(self,msg):
         self._log('NFO',msg)
 
+
     @util.deprecate
     def _fork(self,func):
         '''

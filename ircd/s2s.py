@@ -1,22 +1,9 @@
 from asyncore import dispatcher
 from asynchat import async_chat
-import user
-import socket
+import user, util
+import socket,threading
 
-class linkuser:
-    """
-    remote user object
-    """
-
-    def __init__(self,parent):
-        self.parent = parent
-        self.server = parent.server
-        self.modes = user.modes
-
-
-    def privmsg(self,src,msg,dst=None):
-        if 
-
+trace = util.trace
 
 class link(async_chat):
     """
@@ -27,15 +14,147 @@ class link(async_chat):
         self.parent = parent
         self.server = parent.server
         async_chat.__init__(self,sock)
-        self.set_terminator('\r\n')
-        self.ibuff = ''
+        self.set_terminator(b'\n')
+        self.ibuff = []
+        self.send_line = parent.send_line
+        self._actions = {
+            'privmsg':self.on_privmsg,
+            'notice':self.on_notice,
+            'join':self.on_join,
+            'part':self.on_part,
+            'topic':self.on_topic,
+            'kick':self.on_kick
+            }
 
     def collect_incoming_data(self,data):
-        self.ibuff += data
+        self.ibuff.append(data)
 
+    def filter(self,nm):
+        if '!' in nm and '@' in nm:
+            p = nm.split('@')[0].split('!')
+            return p[0] + '!remote@'+nm.split('@')[1]
+        return nm
+
+    @trace
     def found_terminator(self):
         buff = self.ibuff
-        self.ibuff = ''
+        self.ibuff = []
+        buff = map(lambda b : b.decode('utf-8',errors='replace'),buff)
+        line = ''.join(buff)
+        self.on_line(line)
+
+    @trace
+    def action(self,action,src,dst,msg):
+        self.send_line(':'+str(src)+' '+action.upper()+' '+str(dst)+' :'+str(msg))
+        
+    @trace
+    def privmsg(self,src,dst,msg):
+        if str(dst).startswith('&'):
+            src = 'nameless!nameless@irc.nameless.tld'
+        self.action('privmsg',src,dst,msg)
+
+    @trace
+    def notice(self,src,dst,msg):
+        if str(dst).startswith('&'):
+            src = 'nameless!nameless@irc.nameless.tld'
+        self.action('notice',src,dst,msg)
+
+    @trace
+    def topic(self,chan,topic):
+        self.send_line(':nameless!nameless@irc.nameless.tld TOPIC '+str(chan)+' :'+topic)
+        
+    @trace
+    def join(self,user,chan,dst=None):
+        if str(chan).startswith('&'):
+            return
+        self.send_line(':'+str(user)+' JOIN '+str(chan))
+        
+    @trace
+    def part(self,user,chan,dst):
+        if str(chan).startswith('&'):
+            return
+        self.action('part',user,chan,str(dst))
+
+    @trace
+    def on_kick(self,bully,victum,dst=None):
+        reason = str(dst)
+        self.notice('kickserv!kickserv@'+self.server.name,bully,'yur a $insult for kicking '+victum)
+        
+    @trace
+    def on_join(self,user,chan,dst=None):
+        user = self.filter(str(user))
+        chan = chan[:1]
+        if chan in self.server.chans:
+            chan = self.server.chans[chan]
+            if chan.is_anon or chan.is_invisible:
+                return
+            if not chan.has_remote_user(user):
+                chan.join_remote_user(user)
+            else:
+                self.notice('chanserv!chanserv@'+self.server.name,user,'already joined '+str(chan))
+                    
+    @trace
+    def on_part(self,user,reason,dst=None):
+        user = self.filter(str(user))
+        chan = dst[1:]
+        if chan in self.server.chans:
+            chan = self.server.chans[chan]
+            if chan.is_anon or chan.is_invisible:
+                return
+            if chan.has_remote_user(user):
+                chan.part_remote_user(user,reason)
+            else:
+                self.notice('chanserv!chanserv@'+self.server.name,user,'not in '+str(chan))
+                
+    @trace
+    def on_notice(self,src,msg,dst):
+        src = self.filter(src)
+        if dst in self.server.users:
+            obj = self.server.users[dst]
+        if dst in self.server.chans:
+            obj = self.server.chans[dst]
+            if obj.is_invisible:
+                return
+            if obj.is_anon:
+                src = 'nameless!nameless@irc.nameless.tld'
+        if obj is not None:
+            obj.send_raw(':'+src+' NOTICE '+dst+' :'+msg)
+            
+    @trace
+    def on_topic(self,durr,topic,dst=None):
+        chan = dst
+        if chan in self.server.chans:
+            chan = self.server.chans[chan]
+            if chan.is_invisible:
+                return
+            chan.topic = topic
+            chan.send_topic()
+
+    @trace
+    def on_privmsg(self,src,msg,dst):
+        if dst in self.server.chans:
+            chan = self.server.chans[dst]
+            if chan.is_invisible:
+                return
+            if chan.is_anon:
+                chan.privmsg('nameless!nameless@irc.nameless.tld',msg)
+                return
+            src = self.filter(src)
+            if not chan.has_remote_user(src):
+                chan.join_remote_user(src)
+            chan.privmsg(src,msg)
+                
+
+    @trace
+    def on_line(self,line):
+        print (line)
+        sparts = line[1:].split(' ')
+        if len(sparts) > 2:
+            src, action, dst = tuple(sparts[:3])
+            action = action.lower()
+            if action in self._actions:
+                self._actions[action](src,(' '.join(line.split(' ')[3:]))[1:],dst=dst)
+        
 
     def handle_error(self):
         self.parent.handle_error()
@@ -50,7 +169,7 @@ class linkserv(dispatcher):
     s2s manager
     """
     
-    def __init__(self,parent,addr,cfg_file,ipv6=False):
+    def __init__(self,parent,addr,ipv6=False):
         dispatcher.__init__(self)
         af = ipv6 and socket.AF_INET6 or socket.AF_INET
         self.create_socket(af,socket.SOCK_STREAM)
@@ -59,6 +178,47 @@ class linkserv(dispatcher):
         self.listen(5)
         self.server = parent
         self.links = []
+    
+    def privmsg(self,src,dst,msg):
+        for link in self.links:
+            link.privmsg(src,dst,msg)
+    def notice(self,src,dst,msg):
+        for link in self.links:
+            link.notice(src,dst,msg)
+    def join(self,src,dst):
+        for link in self.links:
+            link.join(src,dst)
+    def part(self,user,chan,dst):
+        for link in self.links:
+            link.part(user,chan,dst)
+    def topic(self,src,topic):
+        for link in self.links:
+            link.topic(src,topic)
+    @trace
+    def send_line(self,line):
+        for c in line:
+            o = ord(c)
+            if o > 127 or o < 1:
+                continue
+            for l in self.links:
+                l.push(c.encode('ascii',errors='replace'))
+        for l in self.links:
+            l.push(b'\n')
+
+    def _link(self,connect):
+        def f():
+            sock , err = connect()
+            if sock is not None:
+                self.links.append(link(sock,self))
+            else:
+                self.server.nfo('link failed , '+str(err))
+        threading.Thread(target=f,args=()).start()
+
+    def i2p_link(self,host):
+        self._link(lambda : util.i2p_connect(host))
+
+    def tor_link(self,host,port):
+        self._link(lambda : util.tor_connect(host,port))
 
     def on_link_closed(self,link):
         if link in self.links:
@@ -72,4 +232,4 @@ class linkserv(dispatcher):
         pair = self.accept()
         if pair:
             sock, addr = pair
-            self.links.append(inbound_link(sock,self))
+            self.links.append(link(sock,self))

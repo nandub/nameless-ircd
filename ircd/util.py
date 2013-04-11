@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import base64, hashlib, os, hmac, functools, inspect, string, json, sys
+import base64, hashlib, os, hmac, functools, inspect, string, json, sys, socket, struct
 from functools import wraps
 def _tripcode(user,secret,salt):
     code = b''
@@ -28,18 +28,15 @@ def socks_connect(host,port,socks_host):
     s.send(struct.pack('BB',4,1))
     s.send(struct.pack('!H',port))
     s.send(struct.pack('BBBB',0,0,0,1))
-    s.send('proxy\x00')
-    s.send(host)
-    s.send('\x00')
+    s.send(b'proxy\x00')
+    s.send(host.encode('ascii'))
+    s.send(b'\x00')
     # socks recv response
     d = s.recv(8)
-    if len(d) != 8 or d[0] != '\x00':
-        return None, 'Invalid Response From Socks Proxy'
-    if d[1] == '\x5a':
+    if len(d) != 8 or d[0] != 0:
+        return None, 'Invalid Response From Socks Proxy : '+str(d)
+    if d[1] == 90:
         return s , 'Connection Okay'
-    elif d[1] == '\x5b':
-
-        return None, 'Connection Rejected / Failed'
     else:
         return None, 'Socks Error got response code %s'%[d[1]]
 

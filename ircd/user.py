@@ -96,6 +96,7 @@ class User(base.BaseObject):
     '''
     def __init__(self,server):
         base.BaseObject.__init__(self,server)
+        self.link = server.link
         self.after_motd = None
         self.last_ping_recv = now()
         self.last_ping_send = 0
@@ -166,7 +167,6 @@ class User(base.BaseObject):
         if 'P' in self.modes and dst is not None:
             msg = self.filter_message(msg)
         self.action(src,'privmsg',msg,dst=dst)
-
     def action(self,src,type,msg,dst=None):
         '''
         send an event from src with type type with contents msg from dst
@@ -264,7 +264,6 @@ class User(base.BaseObject):
             self.chans.remove(chan)
         if chan in self.server.chans:
             self.server.chans[chan].part_user(self)
-
 
     def topic(self,channame,msg):
         '''
@@ -437,6 +436,8 @@ class User(base.BaseObject):
         if target[0] in ['&','#']:
             if target in self.chans or target in self.server.chans:
                 dest = self.server.chans[target]
+                if self.link is not None:
+                    self.link.privmsg(self,dest,msg)
         else:
             if target in self.server.users:
                 dest = self.server.users[target]
@@ -448,7 +449,6 @@ class User(base.BaseObject):
             self.send_num(401,target+' :No such nick/channel')
         else:
             dest.privmsg(src,msg)
-            
     @registered
     @require_min_args(1)
     def got_topic(self,args):

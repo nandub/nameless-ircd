@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-import server, user, adminserv, util
+import server, user, adminserv, util, s2s
 import signal, traceback, asyncore, json, sys
 from threading import Thread
+
 serv = None
 def hup(sig,frame):
     '''
@@ -30,6 +31,9 @@ def main():
     ap.add_argument('--name',type=str,help='server name',default='nameless')
     ap.add_argument('--no-admin',action='store_const',const=False,default=True,dest='admin',help='disable adminserv')
     ap.add_argument('--adminport',type=int,help='adminserv port',default=6666)
+    ap.add_argument('--onion-urc',type=str,help='onion addres for s2s via URC',default=None)
+    ap.add_argument('--i2p-urc',type=str,help='i2p destination for s2s via URC',default=None)
+    ap.add_argument('--link-port',type=int,help='linkserv port to bind on',default=6660)
     # parse args
     args = ap.parse_args()
     # check for SIGHUP
@@ -54,6 +58,12 @@ def main():
     # start mainloop
     for t in serv.threads:
         t.start()
+    link = s2s.linkserv(serv,('127.0.0.1',args.link_port))
+    if args.onion_urc:
+        link.tor_link(args.onion_urc,6660)
+    if args.i2p_urc:
+        link.i2p_link(args.i2p_urc)
+    serv.link = link
     # run mainloop
     try:
         asyncore.loop()

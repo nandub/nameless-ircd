@@ -7,6 +7,7 @@ class Channel:
         self.server =  server
         self.topic = None
         self.name = str(name)
+        self.link = server.link
         # is anon means that the channel does not relay nicknames
         self.is_anon = self.name[0] == '&'
         self.empty = lambda : len(self.users) == 0
@@ -14,6 +15,7 @@ class Channel:
         # channel is not in the server channel list
         self.is_invisible = self.name[1] == '.'
         self._trips = {}
+        self.remotes = []
         
     def set_topic(self,user,topic):
         '''
@@ -24,7 +26,8 @@ class Channel:
             return
         self.topic = topic
         self.send_topic()
-
+        if self.link is not None:
+            self.link.topic(self.name,self.topic)
     def send_raw(self,msg):
         '''
         send raw to all users in channel
@@ -77,6 +80,9 @@ class Channel:
             if u.nick == user.nick:
                 user.send_num('443',str(user)+' '+str(self)+' :is already on channel')
                 return
+        
+        if self.link is not None:
+            self.link.join(user,self.name)
         # add to users in channel
         self.users.append(user)
         
@@ -95,6 +101,8 @@ class Channel:
 
     def part_user(self,user,reason='durr'):
         self._user_quit(user,reason)
+        if self.link is not None:
+            self.link.part(user,self.name,dst=reason)
 
     def _inform_part(self,user,reason):
         if not self.is_anon: # case non anon channel
@@ -152,3 +160,13 @@ class Channel:
         user.send_num(353,'%s %s :%s'%(mod, self.name,nicks.strip()))
         user.send_num(366,'%s :End of NAMES list'%self.name)
 
+    def join_remote_user(self,name):
+        self.remotes.append(name)
+        self.send_raw(':'+name+' JOIN :'+self.name)
+
+    def part_remote_user(self,name,reason):
+        self.remotes.remove(name)
+        self._inform_part(name,reason)
+
+    def has_remote_user(self,name):
+        return name in self.remotes

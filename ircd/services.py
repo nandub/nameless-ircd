@@ -150,7 +150,7 @@ class tripserv(Service):
                 chan = self.server.chans[chan]
                 if chan.is_anon:
                     continue
-                chan.remove_trip(user)
+                chan.remove_trip(user)    
         
 
     def hash_trip(self,name,trip):
