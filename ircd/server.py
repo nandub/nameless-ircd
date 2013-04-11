@@ -100,9 +100,11 @@ class _user(async_chat):
         '''
         push a line to be sent
         '''
-        self.push(msg)
-        self.push(b'\r\n')
-
+        try:
+            self.push(msg)
+            self.push(b'\r\n')
+        except:
+            self.nfo('failed to send line')
 
 class User(_user,BaseUser):
     '''

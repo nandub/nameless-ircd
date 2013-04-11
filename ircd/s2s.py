@@ -163,6 +163,9 @@ class link(async_chat):
 
     @trace
     def on_line(self,line):
+        if line.split(':')[1].split(' ')[0].split('@')[1] == self.server.name:
+            self.dbg('dropping repeat line: '+line)
+            return
         for link in self.parent.links:
             if link == self:
                 continue
@@ -185,9 +188,6 @@ class link(async_chat):
 
     @trace
     def send_line(self,line):
-        if line.split(':')[1].split(' ')[0].split('@')[1] == self.server.name:
-            self.dbg('dropping repeat line: '+line)
-            return
         self.dbg('link send--> '+str(line))
         for c in line:
             o = ord(c)
@@ -204,10 +204,10 @@ class linkserv(dispatcher):
     """
     
     def __init__(self,parent,addr,ipv6=False,accept=False):
-        dispatcher.__init__(self)
         af = ipv6 and socket.AF_INET6 or socket.AF_INET
-        self.create_socket(af,socket.SOCK_STREAM)
         if accept:
+            dispatcher.__init__(self)
+            self.create_socket(af,socket.SOCK_STREAM)
             self.set_reuse_addr()
             self.bind(addr)
             self.listen(5)
