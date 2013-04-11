@@ -10,7 +10,8 @@ class link(async_chat):
     generic link
     """
 
-    def __init__(self,sock,parent):
+    def __init__(self,sock,addr,parent):
+        self.addr = addr
         self.parent = parent
         self.server = parent.server
         async_chat.__init__(self,sock)
@@ -197,6 +198,9 @@ class linkserv(dispatcher):
     def topic(self,src,topic):
         for link in self.links:
             link.topic(src,topic)
+
+    def on_link_closed(self,link):
+        
     @trace
     def send_line(self,line):
         for c in line:
@@ -208,25 +212,31 @@ class linkserv(dispatcher):
         for l in self.links:
             l.push(b'\n')
 
-    def _link(self,connect):
+    def _link(self,connect,addr):
         def f():
             sock , err = connect()
             if sock is not None:
-                self.links.append(link(sock,self))
+                self.links.append(link(sock,addr,self))
             else:
                 self.server.nfo('link failed , '+str(err))
         threading.Thread(target=f,args=()).start()
 
     def i2p_link(self,host):
-        self._link(lambda : util.i2p_connect(host))
+        self._link(lambda : util.i2p_connect(host), host)
 
     def tor_link(self,host,port):
-        self._link(lambda : util.tor_connect(host,port))
+        self._link(lambda : util.tor_connect(host,port), host+':'+str(port))
 
     def on_link_closed(self,link):
         if link in self.links:
             self.links.remove(link)
-
+        if link.addr is None:
+            return
+        if link.addr.count(':') > 0:
+            host,port = tuple( link.addr.split(':') )
+            self.tor_link(host,int(port))
+        else:
+            self.i2p_link(link.host)
     def handle_error(self):
         self.server.handle_error()
 
@@ -234,4 +244,4 @@ class linkserv(dispatcher):
         pair = self.accept()
         if pair:
             sock, addr = pair
-            self.links.append(link(sock,self))
+            self.links.append(link(sock,None,self))
