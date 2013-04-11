@@ -10,14 +10,15 @@ class link(async_chat):
     generic link
     """
 
-    def __init__(self,sock,addr,parent):
-        self.addr = addr
+    def __init__(self,sock,addr,parent,relay=False,accept=False):
+        self.addr = str(addr)
         self.parent = parent
         self.server = parent.server
+        self.dbg = self.server.dbg
         async_chat.__init__(self,sock)
         self.set_terminator(b'\n')
+        self.relay = relay
         self.ibuff = []
-        self.send_line = parent.send_line
         self._actions = {
             'privmsg':self.on_privmsg,
             'notice':self.on_notice,
@@ -26,7 +27,6 @@ class link(async_chat):
             'topic':self.on_topic,
             'kick':self.on_kick
             }
-
     def collect_incoming_data(self,data):
         self.ibuff.append(data)
 
@@ -56,6 +56,8 @@ class link(async_chat):
 
     @trace
     def notice(self,src,dst,msg):
+        if str(dst)[1] == '.':
+            return
         if str(dst).startswith('&'):
             src = 'nameless!nameless@irc.nameless.tld'
         self.action('notice',src,dst,msg)
@@ -66,12 +68,16 @@ class link(async_chat):
         
     @trace
     def join(self,user,chan,dst=None):
+        if str(chan)[1] == '.':
+            return
         if str(chan).startswith('&'):
             return
-        self.send_line(':'+str(user)+' JOIN '+str(chan))
+        self.send_line(':'+str(user)+' JOIN :'+str(chan))
         
     @trace
     def part(self,user,chan,dst):
+        if str(chan)[1] == '.':
+            return
         if str(chan).startswith('&'):
             return
         self.action('part',user,chan,str(dst))
@@ -83,8 +89,13 @@ class link(async_chat):
         
     @trace
     def on_join(self,user,chan,dst=None):
+        
         user = self.filter(str(user))
-        chan = chan[:1]
+        chan = str(dst)
+        chan = chan[1:]
+        self.dbg('link on_join channel '+chan)
+        if chan[1] == '.':
+            return
         if chan in self.server.chans:
             chan = self.server.chans[chan]
             if chan.is_anon or chan.is_invisible:
@@ -96,8 +107,11 @@ class link(async_chat):
                     
     @trace
     def on_part(self,user,reason,dst=None):
+        
         user = self.filter(str(user))
         chan = dst[1:]
+        if chan[1] == '.':
+            return
         if chan in self.server.chans:
             chan = self.server.chans[chan]
             if chan.is_anon or chan.is_invisible:
@@ -110,6 +124,7 @@ class link(async_chat):
     @trace
     def on_notice(self,src,msg,dst):
         src = self.filter(src)
+        obj = None
         if dst in self.server.users:
             obj = self.server.users[dst]
         if dst in self.server.chans:
@@ -168,78 +183,120 @@ class link(async_chat):
         self.parent.on_link_closed(self)
         self.close()
 
+    @trace
+    def send_line(self,line):
+        if line.split(':')[1].split(' ')[0].split('@')[1] == self.server.name:
+            self.dbg('dropping repeat line: '+line)
+            return
+        self.dbg('link send--> '+str(line))
+        for c in line:
+            o = ord(c)
+            if o > 127 or o < 1:
+                continue
+            self.push(c.encode('ascii',errors='replace'))
+            
+        self.push(b'\n')
+
+
 class linkserv(dispatcher):
     """
     s2s manager
     """
     
-    def __init__(self,parent,addr,ipv6=False):
+    def __init__(self,parent,addr,ipv6=False,accept=False):
         dispatcher.__init__(self)
         af = ipv6 and socket.AF_INET6 or socket.AF_INET
         self.create_socket(af,socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind(addr)
+        self.addr = str(addr[0])+':'+str(addr[1])
         self.listen(5)
         self.server = parent
         self.links = []
+        self.dbg = parent.dbg
+        if not accept :
+            self.handle_accept = lambda : None
+        self.nfo = parent.nfo
     
     def privmsg(self,src,dst,msg):
         for link in self.links:
-            link.privmsg(src,dst,msg)
+            if link.relay:
+                link.privmsg(src,dst,msg)
     def notice(self,src,dst,msg):
         for link in self.links:
-            link.notice(src,dst,msg)
+            if link.relay:
+                link.notice(src,dst,msg)
     def join(self,src,dst):
         for link in self.links:
-            link.join(src,dst)
+            if link.relay:
+                link.join(src,dst)
     def part(self,user,chan,dst):
         for link in self.links:
-            link.part(user,chan,dst)
+            if link.relay:
+                link.part(user,chan,dst)
     def topic(self,src,topic):
         for link in self.links:
-            link.topic(src,topic)
+            if link.relay:
+                link.topic(src,topic)
 
-    @trace
-    def send_line(self,line):
-        for c in line:
-            o = ord(c)
-            if o > 127 or o < 1:
-                continue
-            for l in self.links:
-                l.push(c.encode('ascii',errors='replace'))
-        for l in self.links:
-            l.push(b'\n')
 
     def _link(self,connect,addr):
-        def f():
+        def f(addr):
+            self.dbg('connect link addr='+str(addr))
             sock , err = connect()
             if sock is not None:
-                self.links.append(link(sock,addr,self))
+                if isinstance(addr,tuple):
+                    host,port = addr
+                    addr = str(host)+':'+str(port)
+                self.dbg('new link '+str(addr))
+                self.links.append(link(sock,addr,self,relay=True))
             else:
-                self.server.nfo('link failed , '+str(err))
-        threading.Thread(target=f,args=()).start()
-
+                self.nfo('link failed , '+str(err))
+                if '127.0' in addr:
+                    self.local_link(int(addr.split(':')[1]))
+                elif 'b32.i2p' in addr or 'AAAA' in addr:
+                    self.i2p_link(addr)
+                else:
+                    host, port = tuple(addr.split(':'))
+                    self.tor_link(host,port)
+        threading.Thread(target=f,args=(addr,)).start()
+    def local_link(self,port):
+        sock = socket.socket()
+        self._link(lambda : (sock.connect(('127.0.0.1',int(port))) or sock , None),'127.0.0.1:'+str(port))
+        
     def i2p_link(self,host):
         self._link(lambda : util.i2p_connect(host), host)
 
     def tor_link(self,host,port):
-        self._link(lambda : util.tor_connect(host,port), host+':'+str(port))
+        self._link(lambda : util.tor_connect(host,int(port)), host+':'+str(port))
 
     def on_link_closed(self,link):
+        self.dbg('link '+str(link)+' closed addr='+str(link.addr))
         if link in self.links:
             self.links.remove(link)
         if link.addr is None:
             return
-        if link.addr.count(':') > 0:
-            host,port = tuple( link.addr.split(':') )
-            self.tor_link(host,int(port))
+        if isinstance(link.addr,tuple):
+            host,port = link.addr
+            addr = str(host)+':'+str(port)
         else:
-            self.i2p_link(link.host)
+            addr = str(link.addr)
+        if addr.count(':') > 0:
+                host,port = tuple( addr.split(':') )
+                if '127.0' in link.addr:
+                    self.local_link(port)
+                else:
+                    self.tor_link(host,int(port))
+        elif addr.count('.b32.i2p') > 0 or addr.count('AAAA') > 0:
+            self.i2p_link(addr)
+        else:
+            self.nfo('relink failed for addr='+addr)
     def handle_error(self):
         self.server.handle_error()
 
     def handle_accept(self):
         pair = self.accept()
         if pair:
+            self.nfo('new link from '+str(pair))
             sock, addr = pair
             self.links.append(link(sock,None,self))

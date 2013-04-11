@@ -33,7 +33,9 @@ def main():
     ap.add_argument('--adminport',type=int,help='adminserv port',default=6666)
     ap.add_argument('--onion-urc',type=str,help='onion addres for s2s via URC',default=None)
     ap.add_argument('--i2p-urc',type=str,help='i2p destination for s2s via URC',default=None)
+    ap.add_argument('--local-urc',type=str,help='port for s2s via URC on loopback',default=None)
     ap.add_argument('--link-port',type=int,help='linkserv port to bind on',default=6660)
+    ap.add_argument('--no-link',action='store_const',const=True,default=False,dest='no_link',help='disable incoming links')
     # parse args
     args = ap.parse_args()
     # check for SIGHUP
@@ -58,11 +60,13 @@ def main():
     # start mainloop
     for t in serv.threads:
         t.start()
-    link = s2s.linkserv(serv,('127.0.0.1',args.link_port))
+    link = s2s.linkserv(serv,('127.0.0.1',args.link_port),accept=not args.no_link)
     if args.onion_urc:
         link.tor_link(args.onion_urc,6660)
-    if args.i2p_urc:
+    elif args.i2p_urc:
         link.i2p_link(args.i2p_urc)
+    elif args.local_urc:
+        link.local_link(args.local_urc)
     serv.link = link
     # run mainloop
     try:

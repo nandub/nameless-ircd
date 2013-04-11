@@ -39,7 +39,7 @@ class Channel:
         return self.name
 
     def __len__(self):
-        return len(self.users)
+        return len(self.users) + len(self.remotes)
 
     def send_topic(self):
         '''
@@ -81,8 +81,6 @@ class Channel:
                 user.send_num('443',str(user)+' '+str(self)+' :is already on channel')
                 return
         
-        if self.link is not None:
-            self.link.join(user,self.name)
         # add to users in channel
         self.users.append(user)
         
@@ -90,7 +88,9 @@ class Channel:
             # send join to just the user for anon channel
             user.event(str(user),'join',self.name)
         else:
-            # otherwise broadcast join
+            # otherwise broadcast joi
+            if self.link is not None:
+                self.link.join(user,self.name)
             for u in self.users:
                 u.event(str(user),'join',self.name)
         # send topic
