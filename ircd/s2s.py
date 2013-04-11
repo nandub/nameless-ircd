@@ -207,15 +207,16 @@ class linkserv(dispatcher):
         dispatcher.__init__(self)
         af = ipv6 and socket.AF_INET6 or socket.AF_INET
         self.create_socket(af,socket.SOCK_STREAM)
-        self.set_reuse_addr()
-        self.bind(addr)
+        if accept:
+            self.set_reuse_addr()
+            self.bind(addr)
+            self.listen(5)
+            self.handle_accept = lambda : None
         self.addr = str(addr[0])+':'+str(addr[1])
-        self.listen(5)
+        
         self.server = parent
         self.links = []
         self.dbg = parent.dbg
-        if not accept :
-            self.handle_accept = lambda : None
         self.nfo = parent.nfo
     
     def privmsg(self,src,dst,msg):
