@@ -199,8 +199,6 @@ class linkserv(dispatcher):
         for link in self.links:
             link.topic(src,topic)
 
-    def on_link_closed(self,link):
-        
     @trace
     def send_line(self,line):
         for c in line:
