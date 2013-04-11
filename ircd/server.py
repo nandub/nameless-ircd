@@ -95,16 +95,15 @@ class _user(async_chat):
         # screw unicode :p
         # or not
         self.send_bytes(msg.encode('utf-8',errors='replace'))
+
     @trace
     def send_bytes(self,msg):
         '''
         push a line to be sent
         '''
-        try:
+        if msg is not None:
             self.push(msg)
             self.push(b'\r\n')
-        except:
-            self.server.nfo('failed to send line')
 
 class User(_user,BaseUser):
     '''
@@ -708,6 +707,7 @@ class Server(dispatcher):
         pair = self.accept()
         if pair is not None:
             sock, addr = pair
+            self.dbg('new connection '+str(pair))
             self.handlers.append(User(sock,self))
         
     def __str__(self):

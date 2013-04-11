@@ -205,9 +205,9 @@ class linkserv(dispatcher):
     
     def __init__(self,parent,addr,ipv6=False,accept=False):
         af = ipv6 and socket.AF_INET6 or socket.AF_INET
+        dispatcher.__init__(self)
+        self.create_socket(af,socket.SOCK_STREAM)
         if accept:
-            dispatcher.__init__(self)
-            self.create_socket(af,socket.SOCK_STREAM)
             self.set_reuse_addr()
             self.bind(addr)
             self.listen(5)
