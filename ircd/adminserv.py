@@ -3,13 +3,14 @@ from asyncore import dispatcher
 import os, socket, time
 import services, util
 
+locking_dict = util.locking_dict
 
 class adminserv(services.Service):
     
     def __init__(self,server,config={}):
         services.Service.__init__(self,server,config=config)
         self.nick = self.__class__.__name__
-        self.cmds = {
+        self.cmds = locking_dict({
             'debug':self.toggle_debug,
             'denerf':self.denerf_user,
             'nerf':self.nerf_user,
@@ -24,7 +25,7 @@ class adminserv(services.Service):
             'limit':self.limit,
             'flood':self.set_flood_kill,
             '?':self.send_help,
-            }
+            })
 
     def handle_line(self,line):
         class dummy:
@@ -88,7 +89,7 @@ class adminserv(services.Service):
         resp_hook('commands:')
         for cmd, func in self.cmds.items():
             resp_hook(cmd)
-            h = func.func_doc or 'No Help'
+            h = func.__doc__ or 'No Help'
             for line in h.split('\n'):
                 resp_hook('-- '+line)
             resp_hook(' ')

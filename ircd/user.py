@@ -4,6 +4,8 @@ from functools import wraps
 import util, base
 import base64, os
 
+locking_dict = util.locking_dict
+
 def registered(f):
     @wraps(f)
     def func(*args,**kwds):
@@ -46,7 +48,7 @@ class modes:
     channel mode object
     '''
     def __init__(self):
-        self._modes = {}
+        self._modes = locking_dict()
         self._mode_lock = False
         
     def __getitem__(self,key):

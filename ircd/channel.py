@@ -1,3 +1,5 @@
+from util import locking_dict
+
 class Channel:
     '''
     irc channel object
@@ -14,7 +16,7 @@ class Channel:
         # is invisible means that parts and joins are not relayed and the 
         # channel is not in the server channel list
         self.is_invisible = self.name[1] == '.'
-        self._trips = {}
+        self._trips = locking_dict()
         self.remotes = []
         
     def set_topic(self,user,topic):

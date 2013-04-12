@@ -10,31 +10,11 @@ import user
 User = user.User
 import socket,asyncore,base64,os,threading,traceback, json
 import services, util, channel
-from util import trace
+from util import trace, locking_dict
 
 BaseUser = user.BaseUser
 
 
-class multiserver_dict:
-    
-    def __init__(self,attr):
-        self.servs = []
-        self.attr = attr
-
-    def __iter__(self):
-        l = []
-        for serv in self.servs:
-            for i in getattr(serv,self.attr):
-                l.append(i)
-        return iter(l)
-
-    def add_serv(self,serv):
-        if serv not in self.servs:
-            self.servs.append(serv)
-
-    def del_serv(self,serv):
-        if serv in self.servs:
-            self.servs.remove(serv)
 
 class _user(async_chat):
     '''
@@ -155,14 +135,14 @@ class Server(dispatcher):
         self.admin = None
         self.name = name
 
-        self.limits = {
+        limits = {
             'nick':5,
             'topic':5,
             'privmsg&':5,
             'privmsg#':5,
             'join':10,
             }
-
+        self.limits = locking_dict(limits)
         self.flood_kill = False
         
         # flood interval in seconds
@@ -174,8 +154,8 @@ class Server(dispatcher):
         # topic limit
         self.topic_limit = 60
 
-        self.chans = dict()
-        self.users = dict()
+        self.chans = locking_dict()
+        self.users = locking_dict()
         self.pingtimeout = 60 * 5
         self.ping_retry = 2
         self._check_ping = True
@@ -226,7 +206,6 @@ class Server(dispatcher):
                 
             elif tnow - user.last_ping_send > self.pingtimeout / 2:
                 user.send_ping()
-        
     @trace
     def toggle_debug(self):
         '''
@@ -251,7 +230,7 @@ class Server(dispatcher):
         given a list of (data, timestamp) tuples
         check for "flooding"
         '''
-        a = {}
+        a = locking_dict()
         for line , tstamp in lines:
             tstamp /= self.flood_interval
             if tstamp not in a:

@@ -10,14 +10,14 @@ class link(async_chat):
     generic link
     """
 
-    def __init__(self,sock,addr,parent,relay=True,accept=False):
-        self.addr = str(addr)
+    def __init__(self,sock,addr,parent,accept=False):
+        self.addr = addr and str(addr) or None
         self.parent = parent
         self.server = parent.server
         self.dbg = self.server.dbg
         async_chat.__init__(self,sock)
         self.set_terminator(b'\n')
-        self.relay = relay
+        self.relay = True
         self.ibuff = []
         self._actions = {
             'privmsg':self.on_privmsg,
@@ -25,7 +25,8 @@ class link(async_chat):
             'join':self.on_join,
             'part':self.on_part,
             'topic':self.on_topic,
-            'kick':self.on_kick
+            'kick':self.on_kick,
+            'quit':self.on_quit
             }
     def collect_incoming_data(self,data):
         self.ibuff.append(data)
@@ -120,7 +121,12 @@ class link(async_chat):
                 chan.part_remote_user(user,reason)
             else:
                 self.notice('chanserv!chanserv@'+self.server.name,user,'not in '+str(chan))
-                
+
+    @trace
+    def on_quit(self,src,reason,dst=None):
+        for chan in list(self.server.chans.values()):
+            if chan.has_remote_user(src):
+                chan.part_remote_user(src)
     @trace
     def on_notice(self,src,msg,dst):
         src = self.filter(src)
@@ -163,13 +169,14 @@ class link(async_chat):
 
     @trace
     def on_line(self,line):
+        self.dbg(str(self)+' link recv <-- '+str(line))
         if line.split(':')[1].split(' ')[0].split('@')[1] == self.server.name:
             self.dbg('dropping repeat line: '+line)
             return
         for link in self.parent.links:
             if link == self:
                 continue
-            self.send_line(line)
+            link.send_line(line)
         sparts = line[1:].split(' ')
         if len(sparts) > 2:
             src, action, dst = tuple(sparts[:3])
@@ -188,7 +195,7 @@ class link(async_chat):
 
     @trace
     def send_line(self,line):
-        self.dbg('link send--> '+str(line))
+        self.dbg(str(self)+' link send--> '+str(line))
         for c in line:
             o = ord(c)
             if o > 127 or o < 1:
@@ -203,15 +210,14 @@ class linkserv(dispatcher):
     s2s manager
     """
     
-    def __init__(self,parent,addr,ipv6=False,accept=False):
+    def __init__(self,parent,addr,ipv6=False,allow_link=True):
         af = ipv6 and socket.AF_INET6 or socket.AF_INET
         dispatcher.__init__(self)
         self.create_socket(af,socket.SOCK_STREAM)
-        if accept:
+        if allow_link:
             self.set_reuse_addr()
             self.bind(addr)
             self.listen(5)
-            self.handle_accept = lambda : None
         self.addr = str(addr[0])+':'+str(addr[1])
         
         self.server = parent
@@ -243,6 +249,8 @@ class linkserv(dispatcher):
 
     def _link(self,connect,addr):
         def f(addr):
+            if addr is None:
+                return
             self.dbg('connect link addr='+str(addr))
             sock , err = connect()
             if sock is not None:
@@ -250,7 +258,7 @@ class linkserv(dispatcher):
                     host,port = addr
                     addr = str(host)+':'+str(port)
                 self.dbg('new link '+str(addr))
-                self.links.append(link(sock,addr,self,relay=True))
+                self.links.append(link(sock,addr,self))
             else:
                 self.nfo('link failed , '+str(err))
                 if '127.0' in addr:
@@ -295,9 +303,6 @@ class linkserv(dispatcher):
     def handle_error(self):
         self.server.handle_error()
 
-    def handle_accept(self):
-        pair = self.accept()
-        if pair:
-            self.nfo('new link from '+str(pair))
-            sock, addr = pair
-            self.links.append(link(sock,None,self))
+    def handle_accepted(self,sock,addr):
+        self.nfo('new link from '+str(addr))
+        self.links.append(link(sock,None,self))

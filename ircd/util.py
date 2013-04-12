@@ -1,7 +1,22 @@
 # -*- coding: utf-8 -*-
 
-import base64, hashlib, os, hmac, functools, inspect, string, json, sys, socket, struct
+import base64, hashlib, os, hmac, functools, inspect, string, json, sys, socket, struct, threading
 from functools import wraps
+
+
+class locking_dict(dict):
+
+    def __init__(self,*args,**kwds):
+        dict.__init__(self,*args,**kwds)
+        self._lock = threading.Lock()
+    def __iter__(self):
+        self._lock.acquire()  
+        ret = list(self.keys())
+        self._lock.release()
+        return ret.__iter__()
+    
+
+
 def _tripcode(user,secret,salt):
     code = b''
     data = str(user)

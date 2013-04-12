@@ -4,6 +4,7 @@ from util import tripcode
 from functools import wraps
 import util, base
 
+locking_dict = util.locking_dict
 
 def admin(f):
     @wraps(f)
@@ -31,7 +32,7 @@ class Service(base.BaseObject):
         self.last_ping_recv = -1
         self.is_service = True
         self.config = config
-        self.cmds = {}
+        self.cmds = locking_dict()
 
     def send_num(self,num,raw):
         pass
@@ -83,14 +84,14 @@ class tripserv(Service):
     def __init__(self,server,config=None):
         Service.__init__(self,server)
         self.nick = self.__class__.__name__
-        self.cmds = {
+        self.cmds = locking_dict({
             '?':self._help,
             'help':self._help,
             'trip':self._set_trip,
             'on':self._trip_on,
             'off':self._trip_off
-            }
-        self.mapping = {}
+            })
+        self.mapping = locking_dict()
 
     def _help(self,user,args,hook):
         '''
@@ -159,9 +160,9 @@ class tripserv(Service):
 
 # from tcserv import tcserv
 from adminserv import adminserv
-services = {
+services = locking_dict({
     #'tripserv':tripserv,
     'adminserv':adminserv,
     #'linkserv':linkserv,
     #'tcserv':tcserv
-}
+})
