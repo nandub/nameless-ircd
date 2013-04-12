@@ -10,7 +10,7 @@ class link(async_chat):
     generic link
     """
 
-    def __init__(self,sock,addr,parent,accept=False):
+    def __init__(self,sock,addr,parent,reconnect=None):
         self.addr = addr and str(addr) or None
         self.parent = parent
         self.server = parent.server
@@ -18,6 +18,7 @@ class link(async_chat):
         async_chat.__init__(self,sock)
         self.set_terminator(b'\n')
         self.relay = True
+        self.reconnect = reconnect
         self.ibuff = []
         self._actions = {
             'privmsg':self.on_privmsg,
@@ -69,6 +70,7 @@ class link(async_chat):
         
     @trace
     def join(self,user,chan,dst=None):
+        #return
         if str(chan)[1] == '.':
             return
         if str(chan).startswith('&'):
@@ -77,6 +79,7 @@ class link(async_chat):
         
     @trace
     def part(self,user,chan,dst):
+        #return
         if str(chan)[1] == '.':
             return
         if str(chan).startswith('&'):
@@ -218,7 +221,6 @@ class linkserv(dispatcher):
             self.set_reuse_addr()
             self.bind(addr)
             self.listen(5)
-        self.addr = str(addr[0])+':'+str(addr[1])
         
         self.server = parent
         self.links = []
@@ -247,7 +249,7 @@ class linkserv(dispatcher):
                 link.topic(src,topic)
 
 
-    def _link(self,connect,addr):
+    def _link(self,connect,link_addr):
         def f(addr):
             if addr is None:
                 return
@@ -258,7 +260,9 @@ class linkserv(dispatcher):
                     host,port = addr
                     addr = str(host)+':'+str(port)
                 self.dbg('new link '+str(addr))
-                self.links.append(link(sock,addr,self))
+                l = link(sock,addr,self)
+                l.reconnect = addr
+                self.links.append(l)
             else:
                 self.nfo('link failed , '+str(err))
                 if '127.0' in addr:
@@ -268,7 +272,7 @@ class linkserv(dispatcher):
                 else:
                     host, port = tuple(addr.split(':'))
                     self.tor_link(host,port)
-        threading.Thread(target=f,args=(addr,)).start()
+        threading.Thread(target=f,args=(link_addr,)).start()
     def local_link(self,port):
         sock = socket.socket()
         self._link(lambda : (sock.connect(('127.0.0.1',int(port))) or sock , None),'127.0.0.1:'+str(port))
@@ -280,16 +284,16 @@ class linkserv(dispatcher):
         self._link(lambda : util.tor_connect(host,int(port)), host+':'+str(port))
 
     def on_link_closed(self,link):
-        self.dbg('link '+str(link)+' closed addr='+str(link.addr))
+        self.dbg('link '+str(link)+' closed addr='+str(link.reconnect))
         if link in self.links:
             self.links.remove(link)
-        if link.addr is None:
+        if link.reconnect is None:
             return
-        if isinstance(link.addr,tuple):
-            host,port = link.addr
+        if isinstance(link.reconnect,tuple):
+            host,port = link.reconnect
             addr = str(host)+':'+str(port)
         else:
-            addr = str(link.addr)
+            addr = str(link.reconnect)
         if addr.count(':') > 0:
                 host,port = tuple( addr.split(':') )
                 if '127.0' in link.addr:
