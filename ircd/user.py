@@ -448,7 +448,12 @@ class User(base.BaseObject):
                     if hasattr(user,'trip') and user.trip == target:
                         dest = user
         if dest is None:
-            self.send_num(401,target+' :No such nick/channel')
+            if self.link is not None:
+                target = str(target)
+                if target[0] not in ['&','#'] and target.count('!') > 0:
+                    target = target.split('!')[0]
+                self.link.privmsg(str(src),target,msg)
+            # self.send_num(401,target+' :No such nick/channel')
         else:
             dest.privmsg(src,msg)
     @registered

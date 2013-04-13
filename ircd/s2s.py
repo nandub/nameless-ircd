@@ -33,9 +33,9 @@ class link(async_chat):
         self.ibuff.append(data)
 
     def filter(self,nm):
-        if '!' in nm and '@' in nm:
-            p = nm.split('@')[0].split('!')
-            return p[0] + '!remote@'+nm.split('@')[1]
+        #if '!' in nm and '@' in nm:
+        #    p = nm.split('@')[0].split('!')
+        #    return p[0] + '!remote@'+nm.split('@')[1]
         return nm
 
     @trace
@@ -131,6 +131,10 @@ class link(async_chat):
                 chan.part_remote_user(src)
     @trace
     def on_notice(self,src,msg,dst):
+        for user in self.server.users.values():
+            if dst in [user.nick,user.trip]:
+                user.notice(src,msg,str(user))
+                return True
         src = self.filter(src)
         obj = None
         if dst in self.server.users:
@@ -146,6 +150,7 @@ class link(async_chat):
             
     @trace
     def on_topic(self,durr,topic,dst=None):
+        
         chan = dst
         if chan in self.server.chans:
             chan = self.server.chans[chan]
@@ -156,7 +161,12 @@ class link(async_chat):
 
     @trace
     def on_privmsg(self,src,msg,dst):
-        if dst in self.server.chans:
+
+        for user in self.server.users.values():
+            if dst in [user.nick,user.trip]:
+                user.privmsg(src,msg,str(user))
+                return True
+        elif dst in self.server.chans:
             chan = self.server.chans[dst]
             if chan.is_invisible:
                 return
@@ -175,16 +185,17 @@ class link(async_chat):
         if line.split(':')[1].split(' ')[0].split('@')[1] == self.server.name:
             self.dbg('dropping repeat line: '+line)
             return
-        for link in self.parent.links:
-            if link == self:
-                continue
-            link.send_line(line)
         sparts = line[1:].split(' ')
         if len(sparts) > 2:
             src, action, dst = tuple(sparts[:3])
             action = action.lower()
             if action in self._actions:
-                self._actions[action](src,(' '.join(line.split(' ')[3:]))[1:],dst=dst)
+                if not self._actions[action](src,(' '.join(line.split(' ')[3:]))[1:],dst=dst):
+                    for link in self.parent.links:
+                        if link == self:
+                            continue
+                        link.send_line(line)
+                
         
 
     def handle_error(self):
