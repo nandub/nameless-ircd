@@ -11,6 +11,7 @@ class adminserv(services.Service):
         services.Service.__init__(self,server,config=config)
         self.nick = self.__class__.__name__
         self.cmds = locking_dict({
+            'die':self.die,
             'debug':self.toggle_debug,
             'denerf':self.denerf_user,
             'nerf':self.nerf_user,
@@ -40,6 +41,12 @@ class adminserv(services.Service):
     @services.admin
     def serve(self,server,user,line,resp_hook):
         services.Service.serve(self,server,user,line,resp_hook)
+
+    def die(self,user,args,resp_hook):
+        """
+        turn sever off
+        """
+        self.server.stop()
 
 
     def limit(self,user,args,resp_hook):

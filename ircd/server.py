@@ -625,9 +625,10 @@ class Server(dispatcher):
         '''
         remove channel
         '''
+        chan = str(chan)
         if chan in self.chans and self.chans[chan].empty():
             self.chans.pop(chan)
-            
+
     @trace
     def on_link_closed(self,link):
         pass
@@ -665,7 +666,6 @@ class Server(dispatcher):
                         
         for u in users:
             u.nick_change(user,newnick)
-        self.inform_links({'src':str(user),'dst':newnick,'event':'nick'})
 
         # commit change
         user.nick = newnick
@@ -675,16 +675,28 @@ class Server(dispatcher):
 
     @trace
     def stop(self):
+        self.nfo('stopping server')
+        self.send_global('server stoping')
         self.on = False
-    
+        chans = list(self.chans.values())
+        for chan in chans:
+            chan.expunge('server going offline')
+            self.remove_channel(chan)
+        while len(self.handlers) > 0:
+            self.handlers.pop().close_user()
+        while len(self.threads) > 0:
+            self.threads.pop().join()
+        self.handle_close()
+        
     @trace
     def _accepted_3_3(self,sock,addr):
-        self.handlers.append(User(sock,self))
+        if self.on:
+            self.handlers.append(User(sock,self))
         
     @trace
     def _accepted_2_7(self):
         pair = self.accept()
-        if pair is not None:
+        if pair is not None and self.on:
             sock, addr = pair
             self.dbg('new connection '+str(pair))
             self.handlers.append(User(sock,self))

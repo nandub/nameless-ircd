@@ -166,16 +166,16 @@ class link(async_chat):
             if dst in [user.nick,user.trip]:
                 user.privmsg(src,msg,str(user))
                 return True
-        elif dst in self.server.chans:
+        if dst in self.server.chans:
             chan = self.server.chans[dst]
-            if chan.is_invisible:
-                return
-            if chan.is_anon:
-                chan.privmsg('nameless!nameless@irc.nameless.tld',msg)
-                return
-            src = self.filter(src)
-            if not chan.has_remote_user(src):
-                chan.join_remote_user(src)
+        if chan.is_invisible:
+            return
+        if chan.is_anon:
+            chan.privmsg('nameless!nameless@irc.nameless.tld',msg)
+            return
+        src = self.filter(src)
+        if not chan.has_remote_user(src):
+            chan.join_remote_user(src)
             chan.privmsg(src,msg)
                 
 

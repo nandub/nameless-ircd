@@ -18,6 +18,15 @@ class Channel:
         self.is_invisible = self.name[1] == '.'
         self._trips = locking_dict()
         self.remotes = []
+        
+    def expunge(self,reason):
+        for user in self.remotes:
+            self.send_raw(':'+user+' PART '+self.name+' :'+reason)
+        self.remotes = []
+        for user in self.users:
+            self.part_user(user,reason=reason)
+        
+        
     @trace
     def set_topic(self,user,topic):
         '''

@@ -2,8 +2,8 @@ import hashlib, hmac, base64, json, re, sys, threading, time
 from util import tor_connect
 from util import tripcode
 from functools import wraps
-import util, base
-
+import util, base, user
+User = user.User
 locking_dict = util.locking_dict
 
 def admin(f):
@@ -11,7 +11,8 @@ def admin(f):
     def func(*args,**kwds):
         user = args[2]
         server = args[1]
-        if user.trip in util.get_admin_hash_list():
+        l = util.get_admin_hash_list()
+        if isinstance(user,User) and user.trip in l or str(user) in l:
             f(*args, **kwds)
         else:
             user.kill('service abuse ;3')
