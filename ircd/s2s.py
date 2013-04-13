@@ -113,9 +113,8 @@ class link(async_chat):
     def on_part(self,user,reason,dst=None):
         
         user = self.filter(str(user))
-        chan = dst[1:]
-        if chan[1] == '.':
-            return
+        chan = dst
+        self.dbg(user+' part '+chan+' because '+reason)
         if chan in self.server.chans:
             chan = self.server.chans[chan]
             if chan.is_anon or chan.is_invisible:
@@ -216,12 +215,15 @@ class linkserv(dispatcher):
     def __init__(self,parent,addr,ipv6=False,allow_link=True):
         af = ipv6 and socket.AF_INET6 or socket.AF_INET
         dispatcher.__init__(self)
-        self.create_socket(af,socket.SOCK_STREAM)
         if allow_link:
+            self.create_socket(af,socket.SOCK_STREAM)
             self.set_reuse_addr()
             self.bind(addr)
             self.listen(5)
-        
+        else:
+            self.readable = lambda: False
+            self.writeable = lambda: False
+            self.handle_accepted = lambda a,b: None
         self.server = parent
         self.links = []
         self.dbg = parent.dbg
@@ -254,16 +256,11 @@ class linkserv(dispatcher):
             if addr is None:
                 return
             self.dbg('connect link addr='+str(addr))
-            sock , err = connect()
-            if sock is not None:
-                if isinstance(addr,tuple):
-                    host,port = addr
-                    addr = str(host)+':'+str(port)
-                self.dbg('new link '+str(addr))
-                l = link(sock,addr,self)
-                l.reconnect = addr
-                self.links.append(l)
-            else:
+            sock = None
+            err = None
+            try:
+                sock , err = connect()
+            except:
                 self.nfo('link failed , '+str(err))
                 if '127.0' in addr:
                     self.local_link(int(addr.split(':')[1]))
@@ -272,6 +269,14 @@ class linkserv(dispatcher):
                 else:
                     host, port = tuple(addr.split(':'))
                     self.tor_link(host,port)
+            else:
+                if isinstance(addr,tuple):
+                    host,port = addr
+                    addr = str(host)+':'+str(port)
+                self.dbg('new link '+str(addr))
+                l = link(sock,addr,self)
+                l.reconnect = addr
+                self.links.append(l)
         threading.Thread(target=f,args=(link_addr,)).start()
     def local_link(self,port):
         sock = socket.socket()
@@ -295,11 +300,11 @@ class linkserv(dispatcher):
         else:
             addr = str(link.reconnect)
         if addr.count(':') > 0:
-                host,port = tuple( addr.split(':') )
-                if '127.0' in link.addr:
-                    self.local_link(port)
-                else:
-                    self.tor_link(host,int(port))
+            host,port = tuple( addr.split(':') )
+            if '127.0' in addr:
+                self.local_link(port)
+            else:
+                self.tor_link(host,int(port))
         elif addr.count('.b32.i2p') > 0 or addr.count('AAAA') > 0:
             self.i2p_link(addr)
         else:

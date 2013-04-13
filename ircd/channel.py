@@ -1,4 +1,4 @@
-from util import locking_dict
+from util import locking_dict, trace
 
 class Channel:
     '''
@@ -18,7 +18,7 @@ class Channel:
         self.is_invisible = self.name[1] == '.'
         self._trips = locking_dict()
         self.remotes = []
-        
+    @trace
     def set_topic(self,user,topic):
         '''
         set the topic by a user to string topic
@@ -30,6 +30,7 @@ class Channel:
         self.send_topic()
         if self.link is not None:
             self.link.topic(self.name,self.topic)
+    @trace
     def send_raw(self,msg):
         '''
         send raw to all users in channel
@@ -50,7 +51,7 @@ class Channel:
         for user in self.users:
             self.send_topic_to_user(user)
 
-
+    @trace
     def add_trip(self,user):
         if user.id not in self._trips:
             self._trips[user.id] = []
@@ -58,13 +59,14 @@ class Channel:
         self.send_raw(':'+user.get_full_trip()+' JOIN '+self.name)
         if self.link is not None:
             self.link.join(user.get_full_trip(),self.name)
-
+    @trace
     def remove_trip(self,user):
         if user.id in self._trips:
             for trip in self._trips[user.id]:
                 self._inform_part(trip,'durr')
             self._trips[user.id] = []
         
+    
     def send_topic_to_user(self,user):
         '''
         send topic to user
@@ -76,6 +78,7 @@ class Channel:
             return
         user.send_num(332 ,'%s :%s'%(self.name,self.topic))
 
+    @trace
     def joined(self,user):
         ''' 
         called when a user joins the channel
@@ -132,7 +135,7 @@ class Channel:
         # expunge empty channel
         if self.empty():
             self.server.remove_channel(self.name)
-
+    @trace
     def privmsg(self,orig,msg):
         '''
         send a private message from the channel to all users in the channel
@@ -169,13 +172,14 @@ class Channel:
         user.send_num(353,'%s %s :%s'%(mod, self.name,nicks.strip()))
         user.send_num(366,'%s :End of NAMES list'%self.name)
 
+    @trace
     def join_remote_user(self,name):
         self.remotes.append(name)
         self.send_raw(':'+name+' JOIN :'+self.name)
-
+    @trace
     def part_remote_user(self,name,reason):
         self.remotes.remove(name)
         self._inform_part(name,reason)
-
+    @trace
     def has_remote_user(self,name):
         return name in self.remotes
