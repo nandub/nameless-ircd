@@ -45,7 +45,10 @@ class adminserv(services.Service):
         """
         turn sever off
         """
-        self.server.stop()
+        reason = 'going offline'
+        if len(args) > 0:
+            reason = ' '.join(args)
+        self.server.stop(reason)
 
 
     def limit(self,user,args,resp_hook):

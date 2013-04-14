@@ -674,13 +674,14 @@ class Server(dispatcher):
         self.dbg('user is now %s'%user)
 
     @trace
-    def stop(self):
-        self.nfo('stopping server')
-        self.send_global('server stoping')
+    def stop(self,reason):
+        reason = str(reason)
+        self.nfo('stopping server: '+reason)
+        self.send_global('server stoping: '+reason)
         self.on = False
         chans = list(self.chans.values())
         for chan in chans:
-            chan.expunge('server going offline')
+            chan.expunge(reason)
             self.remove_channel(chan)
         while len(self.handlers) > 0:
             self.handlers.pop().close_user()
