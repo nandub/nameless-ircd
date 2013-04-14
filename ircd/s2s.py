@@ -161,11 +161,13 @@ class link(async_chat):
 
     @trace
     def on_privmsg(self,src,msg,dst):
-
+        # hate me later
+        self.dbg('on_privmsg '+str(src)+' -> '+dst+' msg='+str(msg))
         for user in self.server.users.values():
-            if dst in [user.nick,user.trip]:
-                user.privmsg(src,msg,str(user))
-                return True
+            if hasattr(user,'trip'):
+                if dst in [user.nick,user.trip]:
+                    user.privmsg(src,msg,str(user))
+                    return True
         if dst in self.server.chans:
             chan = self.server.chans[dst]
             if chan.is_invisible:
