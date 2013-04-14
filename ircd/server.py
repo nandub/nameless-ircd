@@ -8,7 +8,7 @@ from random import randint as rand
 from threading import Thread
 import user
 User = user.User
-import socket,asyncore,base64,os,threading,traceback, json
+import socket,asyncore,base64,os,threading,traceback, json,sys
 import services, util, channel
 from util import trace, locking_dict
 
@@ -687,6 +687,7 @@ class Server(dispatcher):
         while len(self.threads) > 0:
             self.threads.pop().join()
         self.handle_close()
+        sys.exit()
         
     @trace
     def _accepted_3_3(self,sock,addr):

@@ -34,6 +34,7 @@ class Service(base.BaseObject):
         self.is_service = True
         self.config = config
         self.cmds = locking_dict()
+        self.trip = None
 
     def send_num(self,num,raw):
         pass
