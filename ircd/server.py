@@ -674,7 +674,7 @@ class Server(dispatcher):
         self.dbg('user is now %s'%user)
 
     @trace
-    def stop(self,reason):
+    def stop(self,reason='stopping server'):
         reason = str(reason)
         self.nfo('stopping server: '+reason)
         self.send_global('server stoping: '+reason)
