@@ -178,7 +178,7 @@ class link(async_chat):
             src = self.filter(src)
             if not chan.has_remote_user(src):
                 chan.join_remote_user(src)
-                chan.privmsg(src,msg)
+            chan.privmsg(src,msg)
                 
 
     @trace
