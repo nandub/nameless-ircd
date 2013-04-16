@@ -23,19 +23,37 @@ def main():
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument('--port',type=int,help='port to run on',default=6667)
+
     ap.add_argument('--host',type=str,help='bind host',default='127.0.0.1')
-    ap.add_argument('--log',action='store_const',const=True, default=False,dest='log',help='enable logging by default')
+
+    ap.add_argument('--debug',action='store_const',const=True, default=False,
+                    dest='log',help='enable debug mode by default')
+
     ap.add_argument('--conf',type=str,help='config file',default=None)
-    ap.add_argument('-6',action='store_const',const=True, default=False,dest='ipv6',help='use ipv6')
-    ap.add_argument('--trace',action='store_const',const=True,default=False,dest='trace',help='function debug trace')
+
+    ap.add_argument('-6',action='store_const',const=True, default=False,
+                    dest='ipv6',help='use ipv6')
+
+    ap.add_argument('--trace',action='store_const',const=True,default=False,
+                    dest='trace',help='function debug trace')
+
     ap.add_argument('--name',type=str,help='server name',default='nameless')
-    ap.add_argument('--no-admin',action='store_const',const=False,default=True,dest='admin',help='disable adminserv')
+
+    ap.add_argument('--no-admin',action='store_const',const=False,default=True,
+                    dest='admin',help='disable adminserv')
+
     ap.add_argument('--adminport',type=int,help='adminserv port',default=6666)
+
     ap.add_argument('--onion-urc',type=str,help='onion addres for s2s via URC',default=None)
+
     ap.add_argument('--i2p-urc',type=str,help='i2p destination for s2s via URC',default=None)
+
     ap.add_argument('--local-urc',type=str,help='port for s2s via URC on loopback',default=None)
+
     ap.add_argument('--link-port',type=int,help='linkserv port to bind on',default=6660)
-    ap.add_argument('--no-link',action='store_const',const=True,default=False,dest='no_link',help='disable incoming links')
+
+    ap.add_argument('--no-link',action='store_const',const=True,default=False,
+                    dest='no_link',help='disable incoming links')
     # parse args
     args = ap.parse_args()
     # check for SIGHUP

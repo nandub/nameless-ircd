@@ -178,7 +178,9 @@ class Channel:
         for u in self.remotes:
             nicks += u.split('!')[0]
             nicks += ' '
-        user.send_num(353,'%s %s :%s'%(mod, self.name,nicks.strip()))
+        nicks = nicks.strip()
+        if len(nicks) > 0:
+            user.send_num(353,'%s %s :%s'%(mod, self.name,nicks))
         user.send_num(366,'%s :End of NAMES list'%self.name)
 
     @trace
