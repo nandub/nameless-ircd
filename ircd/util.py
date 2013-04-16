@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import base64, hashlib, os, hmac, functools, inspect, string, json, sys, socket, struct, threading
+import base64, hashlib, os, hmac, functools, inspect, string 
+import json, sys, socket, struct, threading, dbm
 from functools import wraps
 
 
@@ -160,6 +161,24 @@ def trace(f):
             print ("%s(%s)" % (f.__name__, arg_str))
         return f(*arg, **kw)
     return wrapper
+
+db = 'settings'
+
+def put(k,v):
+    db = dbm.open(_db,'c')
+    db[k] = v
+    db.sync()
+    db.close()
+
+def get(k):
+    db = dbm.open(_db,'c')
+    ret = None
+    try:
+        ret = db[k]
+    except dbm.error:
+        pass
+    db.close()
+    return ret
 
 tripcode = lambda nick, trip : _tripcode(nick,trip,_salt)
 i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))

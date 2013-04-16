@@ -93,11 +93,10 @@ class link(async_chat):
         
     @trace
     def on_join(self,user,chan,dst=None):
-        
         user = self.filter(str(user))
         chan = str(dst)
         chan = chan[1:]
-        self.dbg('link on_join channel '+chan)
+        self.dbg('link '+user+' joined '+chan)
         if chan[1] == '.':
             return
         if chan in self.server.chans:
@@ -128,7 +127,7 @@ class link(async_chat):
     def on_quit(self,src,reason,dst=None):
         for chan in list(self.server.chans.values()):
             if chan.has_remote_user(src):
-                chan.part_remote_user(src)
+                chan.part_remote_user(src,'quit')
     @trace
     def on_notice(self,src,msg,dst):
         for user in self.server.users.values():
@@ -188,17 +187,17 @@ class link(async_chat):
             self.dbg('dropping repeat line: '+line)
             return
         sparts = line[1:].split(' ')
+        self.dbg('link line '+str(sparts))
         if len(sparts) > 2:
             src, action, dst = tuple(sparts[:3])
             action = action.lower()
+            self.dbg('action='+str(action))
             if action in self._actions:
                 if not self._actions[action](src,(' '.join(line.split(' ')[3:]))[1:],dst=dst):
                     for link in self.parent.links:
                         if link == self:
                             continue
                         link.send_line(line)
-                
-        
 
     def handle_error(self):
         self.parent.handle_error()

@@ -171,7 +171,7 @@ class Channel:
             for u in self.users:
                 if u.nick == user.nick:
                     continue
-                nicks += ' ' + u.nick    
+                nicks += ' ' + u.nick
 
         user.send_num(353,'%s %s :%s'%(mod, self.name,nicks.strip()))
         nicks = ''
