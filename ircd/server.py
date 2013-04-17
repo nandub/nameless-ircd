@@ -710,6 +710,7 @@ class Server(dispatcher):
             self.handlers.pop().close_user()
         while len(self.threads) > 0:
             self.threads.pop().join()
+        self.link.close()
         self.handle_close()
         
     @trace

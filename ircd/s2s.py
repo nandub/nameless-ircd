@@ -327,6 +327,11 @@ class linkserv(dispatcher):
             self.i2p_link(addr)
         else:
             self.nfo('relink failed for addr='+addr)
+
+    def handle_close(self):
+        for link in self.links:
+            link.reconnect = None
+            link.close()
     def handle_error(self):
         self.server.handle_error()
 
