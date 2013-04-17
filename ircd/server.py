@@ -198,11 +198,12 @@ class Server(dispatcher):
 
     def flood_choke(self,src):
         self.nfo('floodchoke '+src)
-        self.flooders[src] = None
+        self.flooders[src] = int(now())
         
     def flood_unchoke(self,src):
         self.nfo('floodunchoke '+src)
-        del self.flooders[src]
+        if src in self.flooders:
+            del self.flooders[src]
 
     @trace
     def load_wl(self):
