@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import base64, hashlib, os, hmac, functools, inspect, string 
-import json, sys, socket, struct, threading, dbm
+import json, sys, socket, struct, threading, sqlite3
 from functools import wraps
 
 
@@ -162,22 +162,36 @@ def trace(f):
         return f(*arg, **kw)
     return wrapper
 
-db = 'settings'
+_db = 'settings.db'
+c = sqlite3.connect(_db)
+cur = c.cursor()
+cur.execute('CREATE TABLE IF NOT EXISTS cache ( key TEXT , val TEXT )')
+c.commit()
+c.close()
 
 def put(k,v):
-    db = dbm.open(_db,'c')
-    db[k] = v
-    db.sync()
-    db.close()
+    c = sqlite3.connect(_db)
+    cur = c.cursor()
+    cur.execute('SELECT count(val) FROM cache WHERE key = ?',(k,))
+    _v = cur.fetchone()[0]
+    if _v > 0:
+        cur.execute('UPDATE cache SET val = ? WHERE key = ?',(v,k))
+    else:
+        cur.execute('INSERT INTO cache (key,val) VALUES ( ? , ? )',(k,v))
+    c.commit()
+    c.close()
 
 def get(k):
-    db = dbm.open(_db,'c')
     ret = None
-    try:
-        ret = db[k]
-    except dbm.error:
-        pass
-    db.close()
+    c = sqlite3.connect(_db)
+    cur = c.cursor()
+    cur.execute('SELECT count(val) FROM cache WHERE key = ?',(k,))
+    v = cur.fetchone()[0]
+    if v > 0:
+        cur.execute('SELECT val FROM cache WHERE key = ?',(k,))
+        ret =  cur.fetchone()[0]
+        print (ret)
+    c.close()
     return ret
 
 tripcode = lambda nick, trip : _tripcode(nick,trip,_salt)

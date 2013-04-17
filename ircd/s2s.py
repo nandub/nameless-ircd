@@ -328,7 +328,7 @@ class linkserv(dispatcher):
         else:
             self.nfo('relink failed for addr='+addr)
 
-    def handle_close(self):
+    def close(self):
         for link in self.links:
             link.reconnect = None
             link.close()

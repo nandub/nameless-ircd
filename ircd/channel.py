@@ -1,4 +1,5 @@
 from util import locking_dict, trace
+import util
 
 class Channel:
     '''
@@ -7,8 +8,8 @@ class Channel:
     def __init__(self,name,server):
         self.users = []
         self.server =  server
-        self.topic = None
         self.name = str(name)
+        self.topic = util.get(self.name)
         self.link = server.link
         # is anon means that the channel does not relay nicknames
         self.is_anon = self.name[0] == '&'
@@ -19,7 +20,8 @@ class Channel:
         self._trips = locking_dict()
         self.remotes = []
         self.limit = 300
-        
+    
+    
     def expunge(self,reason):
         for user in self.remotes:
             self.send_raw(':'+user+' PART '+self.name+' :'+reason)
@@ -37,6 +39,7 @@ class Channel:
             user.send_num(442, self.name+" :You're not on that channel")
             return
         self.topic = topic
+        util.put(self.name,topic)
         self.send_topic()
         if self.link is not None:
             self.link.topic(self.name,self.topic)
@@ -86,7 +89,8 @@ class Channel:
         if self.topic is None:
             user.send_num(331,'%s :No topic is set'%self.name)
             return
-        user.send_num(332 ,'%s :%s'%(self.name,self.topic))
+
+        user.send_num(332 ,self.name+' :'+self.topic)
 
     @trace
     def joined(self,user):
