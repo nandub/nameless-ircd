@@ -35,7 +35,7 @@ class Channel:
         '''
         set the topic by a user to string topic
         '''
-        if user not in self.users:
+        if user is not None and user not in self.users:
             user.send_num(442, self.name+" :You're not on that channel")
             return
         self.topic = topic
