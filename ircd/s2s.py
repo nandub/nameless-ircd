@@ -12,6 +12,7 @@ class link(async_chat):
 
     def __init__(self,sock,addr,parent,reconnect=None):
         self.addr = addr and str(addr) or None
+        self.flood = parent.server.flood
         self.parent = parent
         self.server = parent.server
         self.dbg = self.server.dbg
@@ -183,10 +184,16 @@ class link(async_chat):
     @trace
     def on_line(self,line):
         self.dbg(str(self)+' link recv <-- '+str(line))
+        self.flood.on_line(line)
         if line.split(':')[1].split(' ')[0].split('@')[1] == self.server.name:
             self.dbg('dropping repeat line: '+line)
             return
+        
         sparts = line[1:].split(' ')
+        src = sparts[0]
+        if src in self.server.flooders:
+            self.dbg('dropping flood from '+src)
+            return
         self.dbg('link line '+str(sparts))
         if len(sparts) > 2:
             src, action, dst = tuple(sparts[:3])

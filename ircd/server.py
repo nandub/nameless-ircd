@@ -9,7 +9,7 @@ from threading import Thread
 import user
 User = user.User
 import socket,asyncore,base64,os,threading,traceback, json,sys
-import services, util, channel
+import services, util, channel, flood
 from util import trace, locking_dict
 
 BaseUser = user.BaseUser
@@ -62,9 +62,9 @@ class _user(async_chat):
                 else:
                     self.close()
         else:
-           # inform got line
+            #inform got line
             self.handle_line(b)
-        
+            
 
     def send_msg(self,msg):
         '''
@@ -123,6 +123,10 @@ class Server(dispatcher):
     def __init__(self,addr,name,ipv6=False,do_log=False,poni=None,configs={}):
         self._no_log = not do_log
         self.poniponi = poni
+        self.flood = flood.flood()
+        self.flood.choke = self.flood_choke
+        self.flood.unchoke = self.flood_unchoke
+        self.flooders = locking_dict()
         dispatcher.__init__(self)
         af = ( not ipv6 and socket.AF_INET ) or socket.AF_INET6 
         self.create_socket(af,socket.SOCK_STREAM)
@@ -144,7 +148,6 @@ class Server(dispatcher):
             }
         self.limits = locking_dict(limits)
         self.flood_kill = False
-        
         # flood interval in seconds
         self.flood_interval = 10
         # lines per interval
@@ -175,17 +178,32 @@ class Server(dispatcher):
         for k in self.configs:
             self.on_new_user(services.services[k](self,config=self.configs[k]))
 
-
         def ping_loop():
             while self.on:
                 try:
                     self.check_ping()
                 except:
                     self.handle_error()
-                sleep(5)
-                
-        t = Thread(target=ping_loop,args=())
-        self.threads = [t]
+                sleep(1)
+        def flood_loop():
+            while self.on:
+                try:
+                    self.flood.tick()
+                except:
+                    self.handle_error()
+                sleep(1)
+        self.threads = []
+        self.threads.append(Thread(target=ping_loop,args=()))
+        self.threads.append(Thread(target=flood_loop,args=()))
+
+    def flood_choke(self,src):
+        self.nfo('floodchoke '+src)
+        self.flooders[src] = None
+        
+    def flood_unchoke(self,src):
+        self.nfo('floodunchoke '+src)
+        del self.flooders[src]
+
     @trace
     def load_wl(self):
         '''
@@ -206,6 +224,9 @@ class Server(dispatcher):
                 
             elif tnow - user.last_ping_send > self.pingtimeout / 2:
                 user.send_ping()
+            
+    
+
     @trace
     def toggle_debug(self):
         '''
@@ -230,6 +251,7 @@ class Server(dispatcher):
         given a list of (data, timestamp) tuples
         check for "flooding"
         '''
+        
         a = locking_dict()
         for line , tstamp in lines:
             tstamp /= self.flood_interval

@@ -1,4 +1,4 @@
-import time
+import time, util
 
 class flood:
     """
@@ -8,19 +8,23 @@ class flood:
     def __init__(self):
         self.objs = dict()
         self.hist = 50
-        self.lines_per_interval = 10
-        self.bytes_per_interval = 1024
-        self.word_spam = 50
+        self.lines_per_interval = 4
+        self.bytes_per_interval = 1024 * 4
+        self.word_spam = 10
         self.pm_per_target = 5
-        self.interval = 3
+        self.interval = 5
+        self.ignore_interval = 60
+        self.flooders = util.locking_dict()
 
     def filter(self,line):
         """
         get list of "spam sources" from line
         """
-        if '!' in line:
-            i = src.index('!')
-            yield src[1:][:i] # user
+        if not line.startswith(':nameless!nameless@nameless'):
+            yield line.split(' ')[0][1:]
+        #if '!' in line:
+        #    i = src.index('!')
+        #    yield src[1:][:i] # user
         
     def now(self):
         """
@@ -43,6 +47,27 @@ class flood:
                 self.objs[src].pop()
             # add new message
             self.objs[src].append((self.now(),line))
+
+    def tick(self):
+        flooders = []
+        for src in self.check_flood():
+            if src not in flooders:
+                flooders.append(src)
+            if src not in self.flooders:
+                self.flooders[src] = int(self.now())
+                self.choke(src)
+        for f in self.flooders:
+            if int(self.now()) - self.flooders[f] > self.ignore_interval:
+                if f in flooders:
+                    continue
+                del self.flooders[f]
+                del self.objs[f]
+                self.unchoke(f)
+                
+    def chock(self,src):
+        pass
+    def unchoke(self,src):
+        pass
 
     def check_flood(self):
         """
@@ -81,14 +106,14 @@ class flood:
                     lines[tstamp] = []
                 lines[tstamp].append(line)
                 # if there are enough lines in this interval block they are flooding
-                if len(dt[tstamp]) > self.lines_per_interval:
-                    return True
+                if len(lines[tstamp]) > self.lines_per_interval:
+                    yield src
                 bsum = 0
                 for l in lines[tstamp]:
                     bsum += len(l)
                     # if there are enough bytes in this interval block they are flooding
                     if bsum > self.bytes_per_interval:
-                        yield user
+                        yield src
                         
             #    
             # word spam limiting
