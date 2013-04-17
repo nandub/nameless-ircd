@@ -18,6 +18,7 @@ class Channel:
         self.is_invisible = self.name[1] == '.'
         self._trips = locking_dict()
         self.remotes = []
+        self.limit = 300
         
     def expunge(self,reason):
         for user in self.remotes:
@@ -96,7 +97,9 @@ class Channel:
             if u.nick == user.nick:
                 user.send_num('443',str(user)+' '+str(self)+' :is already on channel')
                 return
-        
+        if len(self) > self.limit:
+            user.notice(self.name,'channel is full')
+            return
         # add to users in channel
         self.users.append(user)
         
@@ -185,8 +188,13 @@ class Channel:
 
     @trace
     def join_remote_user(self,name):
-        self.remotes.append(name)
-        self.send_raw(':'+name+' JOIN :'+self.name)
+        if len(self) < self.limit:
+            self.remotes.append(name)
+            self.send_raw(':'+name+' JOIN :'+self.name)
+        else:
+            if self.link is not None:
+                self.link.send_line(':'+name+' NOTICE '+self.name+' channel is full')
+                
     @trace
     def part_remote_user(self,name,reason):
         self.remotes.remove(name)

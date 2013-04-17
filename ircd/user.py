@@ -119,6 +119,7 @@ class User(base.BaseObject):
         self.__str__ = self.get_full_name
         self.dbg = lambda msg: server.dbg(str(self)+' '+str(util.filter_unicode(msg)))
         self.handle_close = self.close_user
+        self.notice = self.send_notice
 
     def handle_error(self):
         self.server.handle_error()
@@ -375,7 +376,6 @@ class User(base.BaseObject):
             param.append(part)
         self.dbg('COMMAND: '+str(cmd)+' '+str(param))
         if hasattr(self,'got_'+cmd):
-            # element -1 is what is after the first :
             getattr(self,'got_'+cmd)(param[1:])
 
     
