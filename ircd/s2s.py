@@ -156,8 +156,7 @@ class link(async_chat):
             chan = self.server.chans[chan]
             if chan.is_invisible:
                 return
-            chan.topic = topic
-            chan.send_topic()
+            chan.set_topic(topic)
 
     @trace
     def on_privmsg(self,src,msg,dst):
