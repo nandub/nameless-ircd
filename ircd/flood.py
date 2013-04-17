@@ -22,6 +22,7 @@ class flood:
         """
         if not line.startswith(':nameless!nameless@nameless'):
             yield line.split(' ')[0][1:]
+        
         #if '!' in line:
         #    i = src.index('!')
         #    yield src[1:][:i] # user
@@ -31,6 +32,10 @@ class flood:
         time right now
         """
         return int(time.time())
+
+    def add_flooder(self,src):
+        if src not in self.flooders:
+            self.flooders[src] = self.now()
 
     def on_line(self,line):
         """
@@ -49,10 +54,7 @@ class flood:
             self.objs[src].append((self.now(),line))
 
     def tick(self):
-        for src in self.check_flood():
-            if src not in self.flooders:
-                self.flooders[src] = int(self.now())
-                self.choke(src)
+        self.check_flood()
         for f in self.flooders:
             if int(self.now()) - self.flooders[f] > self.ignore_interval:
                 del self.objs[f]
@@ -64,73 +66,78 @@ class flood:
     def unchoke(self,src):
         pass
 
+    def line_is_flooding(self,line):
+        # may slow stuff down
+        for f in self.flooders:
+            if f in line:
+                return True
+        
+    def check_src(self,src):
+        hist = list(self.objs[src])
+            
+        hist.reverse()
+        lines = dict()
+        #
+        # all messages are grouped into interval blocks
+        #
+        # these blocks contain all events that happened 
+        # in an interval
+        # 
+        # i = beginning of the interval block in unix time
+        #
+        # [ block 0 ] list of events between i0 and i1 
+        # [ block 1 ] list of events between i1 and i2
+        #  ...
+        # [ block N ] list of events between iN-1 and iN 
+        #
+        for tstamp , line in hist:
+            tstamp /= self.interval
+            tstamp = int(tstamp)
+            #
+            # send rate limit
+            #
+            if tstamp not in lines:
+                lines[tstamp] = []
+            lines[tstamp].append(line)
+            # if there are enough lines in this interval block they are flooding
+            if len(lines[tstamp]) > self.lines_per_interval:
+                self.add_flooder(src)
+            bsum = 0
+            for l in lines[tstamp]:
+                bsum += len(l)
+                # if there are enough bytes in this interval block they are flooding
+                if bsum > self.bytes_per_interval:
+                    self.add_flooder(src)
+                        
+        #    
+        # word spam limiting
+        #
+        # for each interval block
+        #
+        # if word is repeated more than self.word_spam times
+        # they are flooding
+        #
+        for ls in lines.values():
+            words = dict()
+            for line in ls:        
+                if 'PRIVMSG' in line:
+                    firstword = True
+                    for word in line.split(' ')[3:]:
+                        if firstword:
+                            word = word[1:]
+                            firstword = False
+                        if word not in words:
+                            words[word] = 0
+                    words[word] += 1
+            for word in words:
+                if words[word] > self.word_spam:
+                    self.add_flooder(src)
+                            
+    
+
     def check_flood(self):
         """
         return a generator that gives the current things that are flooding
         """
         for src in self.objs:
-            # not in object tracker?
-            # add to object tracker
-            # return false
-
-            # get history of object
-            hist = list(self.objs[src])
-            
-            hist.reverse()
-            lines = dict()
-            #
-            # all messages are grouped into interval blocks
-            #
-            # these blocks contain all events that happened 
-            # in an interval
-            # 
-            # i = beginning of the interval block in unix time
-            #
-            # [ block 0 ] list of events between i0 and i1 
-            # [ block 1 ] list of events between i1 and i2
-            #  ...
-            # [ block N ] list of events between iN-1 and iN 
-            #
-            for tstamp , line in hist:
-                tstamp /= self.interval
-                tstamp = int(tstamp)
-                #
-                # send rate limit
-                #
-                if tstamp not in lines:
-                    lines[tstamp] = []
-                lines[tstamp].append(line)
-                # if there are enough lines in this interval block they are flooding
-                if len(lines[tstamp]) > self.lines_per_interval:
-                    yield src
-                bsum = 0
-                for l in lines[tstamp]:
-                    bsum += len(l)
-                    # if there are enough bytes in this interval block they are flooding
-                    if bsum > self.bytes_per_interval:
-                        yield src
-                        
-            #    
-            # word spam limiting
-            #
-            # for each interval block
-            #
-            # if word is repeated more than self.word_spam times
-            # they are flooding
-            #
-            for ls in lines.values():
-                words = dict()
-                for line in ls:        
-                    if 'PRIVMSG' in line:
-                        firstword = True
-                        for word in line.split(' ')[3:]:
-                            if firstword:
-                                word = word[1:]
-                                firstword = False
-                            if word not in words:
-                                words[word] = 0
-                        words[word] += 1
-                    for word in words:
-                        if words[word] > self.word_spam:
-                            yield src
-                            
+            self.check_src(src)

@@ -189,14 +189,13 @@ class link(async_chat):
             self.dbg('dropping repeat line: '+line)
             return
         
-        sparts = line[1:].split(' ')
-        src = sparts[0]
-        if src in self.server.flooders:
-            self.dbg('dropping flood from '+src)
+        parts = line[1:].split(' ')
+        if self.flood.line_is_flooding(line)
+            self.dbg('dropping flood from '+parts[0])
             return
-        self.dbg('link line '+str(sparts))
+        self.dbg('link line '+str(parts))
         if len(sparts) > 2:
-            src, action, dst = tuple(sparts[:3])
+            src, action, dst = tuple(parts[:3])
             action = action.lower()
             self.dbg('action='+str(action))
             if action in self._actions:
