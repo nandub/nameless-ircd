@@ -49,18 +49,13 @@ class flood:
             self.objs[src].append((self.now(),line))
 
     def tick(self):
-        flooders = []
         for src in self.check_flood():
-            if src not in flooders:
-                flooders.append(src)
             if src not in self.flooders:
                 self.flooders[src] = int(self.now())
                 self.choke(src)
         for f in self.flooders:
             if int(self.now()) - self.flooders[f] > self.ignore_interval:
                 del self.objs[f]
-                if f in flooders:
-                    continue
                 del self.flooders[f]
                 self.unchoke(f)
                 
