@@ -331,7 +331,7 @@ class linkserv(dispatcher):
     def close(self):
         for link in self.links:
             link.reconnect = None
-            link.close()
+            link.close_when_done()
     def handle_error(self):
         self.server.handle_error()
 
