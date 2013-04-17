@@ -22,7 +22,7 @@ def require_min_args(f,l):
     def func(*args,**kwds):
         user = args[0]
         if len(args[1]) < l:
-            name = f.func_name.split('got_')[-1].upper()
+            name = f.__name__.split('got_')[-1].upper()
             user.send_num(461,name+' :Not Enough Parameters')
         else:
             f(*args,**kwds)
