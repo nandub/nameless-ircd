@@ -710,7 +710,6 @@ class Server(dispatcher):
         while len(self.threads) > 0:
             self.threads.pop().join()
         self.handle_close()
-        sys.exit()
         
     @trace
     def _accepted_3_3(self,sock,addr):
