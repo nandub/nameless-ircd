@@ -41,7 +41,7 @@ class Channel:
         self.topic = topic
         util.put(self.name,topic)
         self.send_topic()
-        if self.link is not None:
+        if self.link is not None user is not None:
             self.link.topic(self.name,self.topic)
     @trace
     def send_raw(self,msg):
