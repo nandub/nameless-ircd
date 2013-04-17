@@ -20,7 +20,7 @@ class flood:
         """
         get list of "spam sources" from line
         """
-        if not line.startswith(':nameless!nameless@nameless'):
+        if not line.startswith(':nameless!nameless@'):
             yield line.split(' ')[0][1:]
         
         #if '!' in line:
