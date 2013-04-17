@@ -58,10 +58,10 @@ class flood:
                 self.choke(src)
         for f in self.flooders:
             if int(self.now()) - self.flooders[f] > self.ignore_interval:
+                del self.objs[f]
                 if f in flooders:
                     continue
                 del self.flooders[f]
-                del self.objs[f]
                 self.unchoke(f)
                 
     def chock(self,src):
