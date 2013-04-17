@@ -194,7 +194,7 @@ class link(async_chat):
             self.dbg('dropping flood from '+parts[0])
             return
         self.dbg('link line '+str(parts))
-        if len(sparts) > 2:
+        if len(parts) > 2:
             src, action, dst = tuple(parts[:3])
             action = action.lower()
             self.dbg('action='+str(action))
