@@ -190,7 +190,6 @@ def get(k):
     if v > 0:
         cur.execute('SELECT val FROM cache WHERE key = ?',(k,))
         ret =  cur.fetchone()[0]
-        print (ret)
     c.close()
     return ret
 
