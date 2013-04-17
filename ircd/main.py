@@ -18,7 +18,6 @@ def hup(sig,frame):
     else:
         print ('okay')
 
-
 def main():
     import argparse
     ap = argparse.ArgumentParser()
@@ -94,10 +93,7 @@ def main():
         asyncore.loop()
     except KeyboardInterrupt:
         # kill threads
-        serv.on = False
-        for t in serv.threads:
-            t.join()
-
+        serv.stop()
 
 
 if __name__ == '__main__':
