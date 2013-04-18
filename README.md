@@ -46,3 +46,5 @@ bind to all ipv4 interfaces
    * ping [seconds timeout max] - set ping timeout settings
    * global [message] - send global m
    * debug - toggle debug mode (see everything mode)essage
+
+
