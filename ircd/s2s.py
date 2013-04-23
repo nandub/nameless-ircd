@@ -15,6 +15,7 @@ class link(async_chat):
         self.parent = parent
         self.server = parent.server
         self.dbg = self.server.dbg
+        self.nfo = self.server.nfo
         async_chat.__init__(self,sock)
         self.set_terminator(b'\n')
         self.relay = True
@@ -288,11 +289,11 @@ class linkserv(dispatcher):
         self.server.send_global('link '+l.name+' up')
 
     def _link(self,connect,name):
-        def f(addr,name):
-            self.dbg('connect link addr='+str(addr))
+        def f(name):
+            self.dbg('connect link name='+str(name))
             sock = None
             err = None
-            while sock is None:
+            while sock is None and self.server.on:
                 time.sleep(1)
                 try:
                     sock , err = connect()
@@ -300,13 +301,13 @@ class linkserv(dispatcher):
                     self.nfo('link '+str(name)+' failed reconnect')
                     
             self._new_link(sock,lambda : self._link(connect,name),name)
-        threading.Thread(target=f,args=(link_addr,name)).start()
+        threading.Thread(target=f,args=(name,)).start()
 
     def local_link(self,port):
         def connect():
             sock = socket.socket()
             sock.connect(('127.0.0.1',int(port)))
-            return sock
+            return sock, None
         self._link(connect,'local-'+str(port))
         
     def i2p_link(self,host):
@@ -324,14 +325,14 @@ class linkserv(dispatcher):
             if link.reconnect is not None:
                 link.reconnect()
 
-   def close(self):
-       for link in self.links:
-           link.reconnect = None
-           link.close_when_done()
+    def handle_close(self):
+        for link in self.links:
+            link.reconnect = None
+            link.close_when_done()
 
     def handle_error(self):
         self.server.handle_error()
 
     def handle_accepted(self,sock,addr):
         self.nfo('new link from '+str(addr))
-        self._new_link(sock,None,'incoming-'str(addr[1]))
+        self._new_link(sock,None,'incoming-'+str(addr[1]))
