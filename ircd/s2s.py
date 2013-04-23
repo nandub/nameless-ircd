@@ -1,7 +1,7 @@
 from asyncore import dispatcher
 from asynchat import async_chat
 import user, util
-import socket,threading
+import socket,threading,time
 
 trace = util.trace
 
@@ -10,8 +10,7 @@ class link(async_chat):
     generic link
     """
 
-    def __init__(self,sock,addr,parent,reconnect=None):
-        self.addr = addr and str(addr) or None
+    def __init__(self,sock,parent,reconnect=None):
         self.flood = parent.server.flood
         self.parent = parent
         self.server = parent.server
@@ -209,18 +208,16 @@ class link(async_chat):
         self.handle_close()
 
     def handle_close(self):
+        name = str(self.name)
+        self.nfo('link '+name+' closed')
         self.parent.on_link_closed(self)
         self.close()
 
     @trace
-    def send_line(self,line):
-        self.dbg(str(self)+' link send--> '+str(line))
-        for c in line:
-            o = ord(c)
-            if o > 127 or o < 1:
-                continue
-            self.push(c.encode('ascii',errors='replace'))
-            
+    def send_line(self,line,encoding='utf-8'):
+        line = str(line)
+        self.dbg(str(self)+' link send--> '+line)
+        self.push(line.encode(encoding,errors='replace'))
         self.push(b'\n')
 
 
@@ -246,6 +243,22 @@ class linkserv(dispatcher):
         self.dbg = parent.dbg
         self.nfo = parent.nfo
     
+    def reconnect_all(self):
+        links = []
+        for link in self.links:
+            if link.reconnect:
+                links.append(link)
+
+        for link in links:
+            self.link.remove(link)
+            link.close_when_done()
+
+    def disconnect_all(self):
+        for link in self.links:
+            link.reconnect = None
+            link.close_when_done()
+        self.links = []
+
     def privmsg(self,src,dst,msg):
         for link in self.links:
             if link.relay:
@@ -267,73 +280,58 @@ class linkserv(dispatcher):
             if link.relay:
                 link.topic(src,topic)
 
+    def _new_link(self,sock,reconnect,name):
+        l = link(sock,self)
+        l.name = str(name)
+        l.reconnect = reconnect
+        self.links.append(l)
+        self.server.send_global('link '+l.name+' up')
 
-    def _link(self,connect,link_addr):
-        def f(addr):
-            if addr is None:
-                return
+    def _link(self,connect,name):
+        def f(addr,name):
             self.dbg('connect link addr='+str(addr))
             sock = None
             err = None
-            try:
-                sock , err = connect()
-            except:
-                self.nfo('link failed , '+str(err))
-                if '127.0' in addr:
-                    self.local_link(int(addr.split(':')[1]))
-                elif 'b32.i2p' in addr or 'AAAA' in addr:
-                    self.i2p_link(addr)
-                else:
-                    host, port = tuple(addr.split(':'))
-                    self.tor_link(host,port)
-            else:
-                if isinstance(addr,tuple):
-                    host,port = addr
-                    addr = str(host)+':'+str(port)
-                self.dbg('new link '+str(addr))
-                l = link(sock,addr,self)
-                l.reconnect = addr
-                self.links.append(l)
-        threading.Thread(target=f,args=(link_addr,)).start()
+            while sock is None:
+                time.sleep(1)
+                try:
+                    sock , err = connect()
+                except:
+                    self.nfo('link '+str(name)+' failed reconnect')
+                    
+            self._new_link(sock,lambda : self._link(connect,name),name)
+        threading.Thread(target=f,args=(link_addr,name)).start()
+
     def local_link(self,port):
-        sock = socket.socket()
-        self._link(lambda : (sock.connect(('127.0.0.1',int(port))) or sock , None),'127.0.0.1:'+str(port))
+        def connect():
+            sock = socket.socket()
+            sock.connect(('127.0.0.1',int(port)))
+            return sock
+        self._link(connect,'local-'+str(port))
         
     def i2p_link(self,host):
-        self._link(lambda : util.i2p_connect(host), host)
+        self._link(lambda : util.i2p_connect(host),str(host))
 
-    def tor_link(self,host,port):
-        self._link(lambda : util.tor_connect(host,int(port)), host+':'+str(port))
+    def tor_link(self,host,port=6660):
+        self._link(lambda : util.tor_connect(host,int(port)),str(host))
 
     def on_link_closed(self,link):
-        self.dbg('link '+str(link)+' closed addr='+str(link.reconnect))
+        name = str(link.name)
+        self.dbg('link '+name+' closed')
+        self.server.send_global('link '+name+' down')
         if link in self.links:
             self.links.remove(link)
-        if link.reconnect is None:
-            return
-        if isinstance(link.reconnect,tuple):
-            host,port = link.reconnect
-            addr = str(host)+':'+str(port)
-        else:
-            addr = str(link.reconnect)
-        if addr.count(':') > 0:
-            host,port = tuple( addr.split(':') )
-            if '127.0' in addr:
-                self.local_link(port)
-            else:
-                self.tor_link(host,int(port))
-        elif addr.count('.b32.i2p') > 0 or addr.count('AAAA') > 0:
-            self.i2p_link(addr)
-        else:
-            self.nfo('relink failed for addr='+addr)
+            if link.reconnect is not None:
+                link.reconnect()
 
-    def close(self):
+   def close(self):
         for link in self.links:
             link.reconnect = None
             link.close_when_done()
+
     def handle_error(self):
         self.server.handle_error()
 
     def handle_accepted(self,sock,addr):
         self.nfo('new link from '+str(addr))
-        self.links.append(link(sock,None,self))
+        self._new_link(sock,None,'incoming-'str(addr[1]))
