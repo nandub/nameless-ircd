@@ -25,6 +25,8 @@ class adminserv(services.Service):
             'limit':self.limit,
             'flood':self.set_flood_kill,
             '?':self.send_help,
+            'link':self.link_server,
+            'delink':self.unlink_server
             })
 
     def handle_line(self,line):
@@ -40,6 +42,36 @@ class adminserv(services.Service):
     @services.admin
     def serve(self,server,user,line,resp_hook):
         services.Service.serve(self,server,user,line,resp_hook)
+
+    def link_server(self,user,args,resp_hook):
+        """
+        link to another server
+        link local $port
+        link i2p $i2pdest
+        link onion $onion
+        """
+        if len(args) == 2:
+            type = args[0]
+            addr = args[1]
+            if type == 'local':
+                try:
+                    addr = int(addr)
+                except:
+                    resp_hook('local link requires port number only')
+                    return
+                self.server.link.local_link(addr)
+            elif type == 'i2p':
+                self.server.link.i2p_link(addr)
+            elif type == 'onion':
+                self.server.link.tor_link(addr)
+            else:
+                resp_hook('bad link type: '+type)
+        else:
+            resp_hook('usage: link link_type link_address')
+
+    def unlink_server(self,user,args,resp_hook):
+        self.server.link.disconnect_all()
+        resp_hook('delinked all servers')
 
     def die(self,user,args,resp_hook):
         """

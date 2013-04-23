@@ -90,7 +90,7 @@ def main():
     serv.link = link
     # run mainloop
     try:
-        asyncore.loop()
+        asyncore.loop(timeout=10)
     except KeyboardInterrupt:
         # kill threads
         serv.stop()

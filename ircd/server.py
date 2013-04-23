@@ -278,11 +278,10 @@ class Server(dispatcher):
                     d[k] -= 1
                     if d[k] <= 0:
                         return True
-        del a
         return False
 
     def nfo(self,msg):
-        self._log('NFO',msg)
+        self._log('INFO',msg)
 
 
     @util.deprecate
@@ -415,7 +414,7 @@ class Server(dispatcher):
         '''
         print debug message
         '''
-        self._log('DBG',msg)
+        self._log('DEBUG',msg)
         
     @util.deprecate
     def _iter(self,f_iter,f_cycle,timesleep):
@@ -433,7 +432,7 @@ class Server(dispatcher):
         '''
         print error message
         '''
-        self._log('ERR',msg)
+        self._log('ERROR',msg)
         try:
             with open('errors.log','a') as a:
                 a.write('incodent at %d'%now())
@@ -710,14 +709,15 @@ class Server(dispatcher):
             self.handlers.pop().close_user()
         while len(self.threads) > 0:
             self.threads.pop().join()
-        self.link.close()
+        self.link.handle_close()
         self.handle_close()
         
     @trace
     def _accepted_3_3(self,sock,addr):
         if self.on:
             self.handlers.append(User(sock,self))
-        
+        else:
+            sock.close()
     @trace
     def _accepted_2_7(self):
         pair = self.accept()
