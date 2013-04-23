@@ -6,10 +6,10 @@ class flood:
     """
 
     def __init__(self):
-        self.objs = dict()
+        self.objs = util.locking_dict()
         self.hist = 50
         self.lines_per_interval = 4
-        self.bytes_per_interval = 1024 * 4
+        self.bytes_per_interval = 1024 
         self.word_spam = 10
         self.pm_per_target = 5
         self.interval = 5
@@ -36,6 +36,7 @@ class flood:
     def add_flooder(self,src):
         if src not in self.flooders:
             self.flooders[src] = self.now()
+            self.objs.pop(src)
 
     def on_line(self,line):
         """
@@ -57,9 +58,10 @@ class flood:
         self.check_flood()
         for f in self.flooders:
             if int(self.now()) - self.flooders[f] > self.ignore_interval:
-                del self.objs[f]
-                del self.flooders[f]
-                self.unchoke(f)
+                self.flooders.pop(f)
+                self.check_src(f)
+                if f not in self.flooders:
+                    self.unchoke(f)
                 
     def chock(self,src):
         pass
