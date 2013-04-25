@@ -34,9 +34,9 @@ class link(async_chat):
         self.ibuff.append(data)
 
     def filter(self,nm):
-        #if '!' in nm and '@' in nm:
-        #    p = nm.split('@')[0].split('!')
-        #    return p[0] + '!remote@'+nm.split('@')[1]
+        if '!' in nm and '@' in nm:
+            p = nm.split('@')[0].split('!')
+            return p[0] + '!remote@'+nm.split('@')[1]
         return nm
 
     @trace
@@ -71,7 +71,6 @@ class link(async_chat):
         
     @trace
     def join(self,user,chan,dst=None):
-        #return
         if str(chan)[1] == '.':
             return
         if str(chan).startswith('&'):
@@ -80,7 +79,6 @@ class link(async_chat):
         
     @trace
     def part(self,user,chan,dst):
-        #return
         if str(chan)[1] == '.':
             return
         if str(chan).startswith('&'):

@@ -201,8 +201,8 @@ class Server(dispatcher):
         self.flooders[src] = int(now())
         
     def flood_unchoke(self,src):
-        self.nfo('floodunchoke '+src)
         if src in self.flooders:
+            self.nfo('floodunchoke '+src)
             del self.flooders[src]
 
     @trace
@@ -723,7 +723,6 @@ class Server(dispatcher):
         pair = self.accept()
         if pair is not None and self.on:
             sock, addr = pair
-            self.dbg('new connection '+str(pair))
             self.handlers.append(User(sock,self))
         
     def __str__(self):
