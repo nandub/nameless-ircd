@@ -182,6 +182,10 @@ class link(async_chat):
     def on_line(self,line):
         self.dbg(str(self)+' link recv <-- '+str(line))
         self.flood.on_line(line)
+        for c in [':','@',' ']:
+            if c not in line:
+                self.nfo('invalid s2s line: '+line)
+                return
         if line.split(':')[1].split(' ')[0].split('@')[1] == self.server.name:
             self.dbg('dropping repeat line: '+line)
             return
@@ -219,6 +223,20 @@ class link(async_chat):
         self.push(line.encode(encoding,errors='replace'))
         self.push(b'\n')
 
+
+class incoming_link(link):
+    
+    is_authed = False
+
+    @trace
+    def on_line(self,line):
+        self.check_auth(line)
+        if self.is_authed:
+            link.on_line(self.line)
+
+    @trace
+    def check_auth(self,line):
+        pass
 
 class linkserv(dispatcher):
     """
@@ -279,8 +297,9 @@ class linkserv(dispatcher):
             if link.relay:
                 link.topic(src,topic)
 
-    def _new_link(self,sock,reconnect,name):
-        l = link(sock,self)
+    def _new_link(self,sock,reconnect,name,link_class=link):
+        
+        l = link_class(sock,self)
         l.name = str(name)
         l.reconnect = reconnect
         self.links.append(l)
@@ -333,4 +352,5 @@ class linkserv(dispatcher):
 
     def handle_accepted(self,sock,addr):
         self.nfo('new link from '+str(addr))
-        self._new_link(sock,None,'incoming-'+str(addr[1]))
+        self._new_link(sock,None,'incoming-'+str(addr[1]),incoming_link)
+        

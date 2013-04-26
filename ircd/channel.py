@@ -207,4 +207,7 @@ class Channel:
     @trace
     def has_remote_user(self,name):
         nick = name.split('!')[0]
-        return name in self.remotes or nick in self.users
+        for remote in self.remotes:
+            if nick == remote.split('!')[0]:
+                return True
+        return nick in self.users
