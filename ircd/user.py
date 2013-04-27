@@ -178,13 +178,28 @@ class User(base.BaseObject):
             dst = self
         self.send_raw(':%s %s %s :'%(src, type.upper(),dst)+msg)
 
-    def close_user(self):
+
+    def announce(self,hook):
+        '''
+        announce to all other users
+        '''
+        users = {self:None}
+        for chan in self.chans:
+            if chan in self.server.chans:
+                for u in self.server.chans[chan].users:
+                    if u not in users:
+                        users[u] = None
+        for u in users:
+            hook(u)
+
+
+    def close_user(self,reason='quit'):
         '''
         close user and expunge cconnection
         '''
         self.dbg('%s closing connection'%self)
-        for chan in self.chans:
-            self.part(chan)
+        reason = str(reason)
+        self.announce(lambda u : u.send_raw(':'+str(self)+' QUIT :'+reason))
         self.server.on_user_closed(self)
         self.close()
 

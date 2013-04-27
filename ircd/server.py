@@ -462,7 +462,7 @@ class Server(dispatcher):
             chan = self.chans[chan]
             for u in chan.users:
                 if u.id == user.id:
-                    chan.part_user(user)
+                    chan.users.remove(user)
         if user in self.handlers:
             self.handlers.remove(user)
         if user.nick in self.users:
@@ -664,6 +664,7 @@ class Server(dispatcher):
         if chan in self.chans:
             self.chans[chan].user_quit(user) # send part
         self.inform_links({'src':str(user),'dst':chan,'event':'part'})
+
     @trace
     def change_nick(self,user,newnick):
         '''
@@ -678,17 +679,9 @@ class Server(dispatcher):
 
         self.users[newnick] = self.users.pop(user.nick)
 
-        # users to inform
-        users = {user:None}
-        for chan in user.chans:
-            if chan in self.chans:
-                for u in self.chans[chan].users:
-                    if u not in users:
-                        users[u] = None
-                        
-        for u in users:
+        def hook(u):
             u.nick_change(user,newnick)
-
+        user.announce(hook)
         # commit change
         user.nick = newnick
         user.usr = newnick
@@ -702,9 +695,6 @@ class Server(dispatcher):
         self.send_global('server stoping: '+reason)
         self.on = False
         chans = list(self.chans.values())
-        for chan in chans:
-            chan.expunge(reason)
-            self.remove_channel(chan)
         while len(self.handlers) > 0:
             self.handlers.pop().close_user()
         while len(self.threads) > 0:
@@ -720,10 +710,11 @@ class Server(dispatcher):
             sock.close()
     @trace
     def _accepted_2_7(self):
-        pair = self.accept()
-        if pair is not None and self.on:
-            sock, addr = pair
-            self.handlers.append(User(sock,self))
+        if self.on:
+            pair = self.accept()
+            if pair is not None:
+                sock, addr = pair
+                self.handlers.append(User(sock,self))
         
     def __str__(self):
         return str(self.name)

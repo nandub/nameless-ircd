@@ -236,7 +236,7 @@ class incoming_link(link):
 
     @trace
     def check_auth(self,line):
-        pass
+        self.is_authed = True
 
 class linkserv(dispatcher):
     """
@@ -298,7 +298,8 @@ class linkserv(dispatcher):
                 link.topic(src,topic)
 
     def _new_link(self,sock,reconnect,name,link_class=link):
-        
+        if not self.server.on:
+            return
         l = link_class(sock,self)
         l.name = str(name)
         l.reconnect = reconnect
@@ -352,5 +353,6 @@ class linkserv(dispatcher):
 
     def handle_accepted(self,sock,addr):
         self.nfo('new link from '+str(addr))
-        self._new_link(sock,None,'incoming-'+str(addr[1]),incoming_link)
+        if self.server.on:
+            self._new_link(sock,None,'incoming-'+str(addr[1]),incoming_link)
         
