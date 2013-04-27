@@ -109,8 +109,8 @@ class link(async_chat):
                     
     @trace
     def on_part(self,user,reason,dst=None):
-        
-        user = self.filter(str(user))
+        user = str(user)
+        #nick = self.filter(str(user))
         chan = dst
         self.dbg(user+' part '+chan+' because '+reason)
         if chan in self.server.chans:
@@ -133,7 +133,7 @@ class link(async_chat):
             if dst in [user.nick,user.trip]:
                 user.notice(src,msg,str(user))
                 return True
-        src = self.filter(src)
+        #nick = self.filter(src)
         obj = None
         if dst in self.server.users:
             obj = self.server.users[dst]
@@ -172,7 +172,7 @@ class link(async_chat):
             if chan.is_anon:
                 chan.privmsg('nameless!nameless@irc.nameless.tld',msg)
                 return
-            src = self.filter(src)
+            #nick = self.filter(src)
             if not chan.has_remote_user(src):
                 chan.join_remote_user(src)
             chan.privmsg(src,msg)
