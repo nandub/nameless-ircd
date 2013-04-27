@@ -232,7 +232,7 @@ class incoming_link(link):
     def on_line(self,line):
         self.check_auth(line)
         if self.is_authed:
-            link.on_line(self.line)
+            link.on_line(line)
 
     @trace
     def check_auth(self,line):

@@ -190,7 +190,8 @@ class User(base.BaseObject):
                     if u not in users:
                         users[u] = None
         for u in users:
-            hook(u)
+            if u != self:
+                hook(u)
 
 
     def close_user(self,reason='quit'):
