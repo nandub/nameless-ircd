@@ -415,6 +415,8 @@ class User(base.BaseObject):
             
     @require_min_args(4)
     def got_user(self,args):
+        if len(self.nick) == 0:
+            self.nick = self.do_nickname(args[0])
         self.server.on_new_user(self)
         #self.server.change_nick(self,self.do_nickname(self.nick))
 
