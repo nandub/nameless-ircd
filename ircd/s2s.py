@@ -76,6 +76,9 @@ class link(async_chat):
         if str(chan).startswith('&'):
             return
         self.send_line(':'+str(user)+' JOIN :'+str(chan))
+
+    def quit(self,user,reason='quit'):
+        self.send_line(':'+str(user)+' QUIT :'+str(reason))
         
     @trace
     def part(self,user,chan,dst):
@@ -182,6 +185,9 @@ class link(async_chat):
     def on_line(self,line):
         self.dbg(str(self)+' link recv <-- '+str(line))
         self.flood.on_line(line)
+        if self.flood.line_is_flooding(line):
+            self.dbg('drop flood')
+            return
         for c in [':','@',' ']:
             if c not in line:
                 self.nfo('invalid s2s line: '+line)
@@ -191,9 +197,6 @@ class link(async_chat):
             return
         
         parts = line[1:].split(' ')
-        if self.flood.line_is_flooding(line):
-            self.dbg('dropping flood from '+parts[0])
-            return
         self.dbg('link line '+str(parts))
         if len(parts) > 2:
             src, action, dst = tuple(parts[:3])
@@ -219,7 +222,7 @@ class link(async_chat):
     @trace
     def send_line(self,line,encoding='utf-8'):
         line = str(line)
-        self.dbg(str(self)+' link send--> '+line)
+        self.dbg(str(self)+' link send --> '+line)
         self.push(line.encode(encoding,errors='replace'))
         self.push(b'\n')
 
@@ -275,6 +278,11 @@ class linkserv(dispatcher):
             link.reconnect = None
             link.close_when_done()
         self.links = []
+
+    def quit(self,user,reason):
+        for link in self.links:
+            if link.relay:
+                link.quit(user,reason)
 
     def privmsg(self,src,dst,msg):
         for link in self.links:

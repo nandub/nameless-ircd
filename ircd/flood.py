@@ -75,6 +75,9 @@ class flood:
                 return True
         
     def check_src(self,src):
+        if src not in self.objs:
+            self.objs[src] = []
+            return
         hist = list(self.objs[src])
             
         hist.reverse()

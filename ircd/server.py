@@ -467,6 +467,8 @@ class Server(dispatcher):
             self.handlers.remove(user)
         if user.nick in self.users:
             self.users.pop(user.nick)
+        if self.link is not None:
+            self.link.quit(user,'user quit')
 
     @util.deprecate
     def close_user(self,user):
