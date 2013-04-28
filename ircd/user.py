@@ -314,28 +314,28 @@ class User(base.BaseObject):
         set mode given a modestring
         '''
         for ch in modestring.split(' '):
-            if ch == '+T':
-                if self.trip is not None:
-                    self.send_notice('tripserv!tripserv@'+self.server.name,
-                                     'tripcode on')
-                    if 'T' in self.modes:
-                        continue
-                    for chan in self.chans:
-                        if chan in self.server.chans:
-                            chan = self.server.chans[chan]
-                            if chan.is_anon:
-                                continue
-                        chan.add_trip(self)
-            elif ch == '-T':
-                if self.trip is not None:
-                    self.send_notice('tripserv!tripserv@'+self.server.name,
-                                     'tripcode off')
-                    for chan in self.chans:
-                        if chan in self.server.chans:
-                            chan = self.server.chans[chan]
-                            if chan.is_anon:
-                                continue
-                        chan.remove_trip(self)
+            #if ch == '+T':
+            #    if self.trip is not None:
+            #        self.send_notice('tripserv!tripserv@'+self.server.name,
+            #                         'tripcode on')
+            #        if 'T' in self.modes:
+            #            continue
+            #        for chan in self.chans:
+            #            if chan in self.server.chans:
+            #                chan = self.server.chans[chan]
+            #                if chan.is_anon:
+            #                    continue
+            #            chan.add_trip(self)
+            #elif ch == '-T':
+            #    if self.trip is not None:
+            #        self.send_notice('tripserv!tripserv@'+self.server.name,
+            #                         'tripcode off')
+            #        for chan in self.chans:
+            #            if chan in self.server.chans:
+            #                chan = self.server.chans[chan]
+            #                if chan.is_anon:
+            #                    continue
+            #            chan.remove_trip(self)
      
             for c in ch[1:]:
                 self.modes[c] = ch[0] in '+-' and ch[0] or '-'
@@ -368,9 +368,7 @@ class User(base.BaseObject):
             i = nick.index('#')
             nick = nick.encode('utf-8',errors='replace')
             self.trip = util.tripcode(nick[:i],nick[i+1:])
-            self.send_notice('tripserv!tripserv@'+self.server.name,
-                             'tripcode set to '+self.trip)
-        return self.id
+        return self.trip or self.id
 
     def handle_line(self,inbuffer):
         '''
@@ -412,13 +410,13 @@ class User(base.BaseObject):
         nick = self.do_nickname(args[0])
         if not self.welcomed and len(self.nick) == 0:
             self.nick = nick
-            self.usr = 'user'
+            self.usr = 'local'
             self.server.change_nick(self,nick)
             
     @require_min_args(4)
     def got_user(self,args):
         self.server.on_new_user(self)
-        self.server.change_nick(self,self.do_nickname(self.nick))
+        #self.server.change_nick(self,self.do_nickname(self.nick))
 
     @registered
     @require_min_args(1)
