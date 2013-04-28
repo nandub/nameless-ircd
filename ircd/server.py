@@ -120,7 +120,7 @@ class Server(dispatcher):
     main server object
     '''
     @trace
-    def __init__(self,addr,name,ipv6=False,do_log=False,poni=None,configs={}):
+    def __init__(self,addr,name,ipv6=False,do_log=False,poni=None,configs={},link_auth=False):
         self._no_log = not do_log
         self.poniponi = poni
         self.flood = flood.flood()
@@ -138,6 +138,8 @@ class Server(dispatcher):
         self.handlers = []
         self.admin = None
         self.name = name
+
+        self.require_auth = link_auth
 
         limits = {
             'nick':5,
@@ -385,6 +387,7 @@ class Server(dispatcher):
         for line in self.motd().split('\n'):
             user.send_num(372, ':- %s '%line)
         user.send_num(376, ':- End of MOTD command')
+
     @trace
     def send_welcome(self,user):
         '''

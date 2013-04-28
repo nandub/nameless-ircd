@@ -237,9 +237,51 @@ class incoming_link(link):
         if self.is_authed:
             link.on_line(self,line)
 
+    def _check_line(self,line):
+        # incomming server registers themself and their children
+        if line.startswith('SERVER '):
+            # format is
+            #
+            # SERVER name.of.server 0 0 :name.of.child1,name.of.child2,name.of.child3
+            # given that there are 3 child servers from the incomming connection
+            # 
+            # for no children format is
+            #
+            # SERVER name.of.server 0 0 :name.of.server
+            #
+            parts = line.split(' ')
+            if len(parts) < 5:
+                self.close_when_done()
+                return False
+            server_name = parts[1]
+            response_parts = [server_name]
+            if self.server.register_server(server_name):
+                # get children from info as comma separated values
+                for part in (' '.join(parts[4:]))[1:].split(','):
+                    part = part.strip()
+                    if self.server.register_server(part):
+                        response_parts.append(part)
+            
+                # response info has the servers that were accepted
+                #
+                # format is
+                #
+                # :our.server.name SERVER our.server.name 0 0 :name.of.server,name.of.child1
+                #
+                response = ':'+self.server.name+' SERVER '+self.server.name+' 0 0 :'
+                response += ','.join(response_parts)
+                self.send_line(response[:-1])
+                return True
+            else:
+                self.close_when_done()
+        return False
+
     @trace
     def check_auth(self,line):
-        self.is_authed = True
+        if self.server.require_auth:
+            self.is_authed = not self.is_authed and self._check_line(line) or self.is_authed
+        else:
+            self.is_authed = True
 
 class linkserv(dispatcher):
     """
