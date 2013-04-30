@@ -412,7 +412,7 @@ class User(base.BaseObject):
         if not self.welcomed and len(self.nick) == 0:
             self.nick = nick
             self.usr = 'local'
-            self.server.change_nick(self,nick)
+            self.server.change_nick(self.nick)
             
     @require_min_args(4)
     def got_user(self,args):
