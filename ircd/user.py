@@ -418,7 +418,7 @@ class User(base.BaseObject):
     def got_user(self,args):
         if len(self.nick) == 0:
             self.nick = self.do_nickname(args[0])
-            self.server.change_nick(self,nick)
+            self.server.change_nick(self,self.nick)
         self.server.on_new_user(self)
         #self.server.change_nick(self,self.do_nickname(self.nick))
 
