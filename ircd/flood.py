@@ -21,7 +21,8 @@ class flood:
         get list of "spam sources" from line
         """
         if not line.startswith(':nameless!nameless@'):
-            yield line.split(' ')[0][1:]
+            if '&' in line or '#' in line:
+                yield line.split(' ')[0][1:]
         
         #if '!' in line:
         #    i = src.index('!')
@@ -65,6 +66,7 @@ class flood:
                 
     def chock(self,src):
         pass
+
     def unchoke(self,src):
         pass
 

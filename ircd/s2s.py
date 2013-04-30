@@ -67,7 +67,7 @@ class link(async_chat):
 
     @trace
     def topic(self,chan,topic):
-        self.send_line(':nameless!nameless@irc.nameless.tld TOPIC '+str(chan)+' :'+topic)
+        self.send_line(':nameless!nameless@irc.nameless.tld TOPIC '+str(chan)+' :'+str(topic))
         
     @trace
     def join(self,user,chan,dst=None):
