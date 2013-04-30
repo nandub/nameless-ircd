@@ -128,8 +128,7 @@ class link(async_chat):
     @trace
     def on_quit(self,src,reason,dst=None):
         for chan in list(self.server.chans.values()):
-            if chan.has_remote_user(src):
-                chan.part_remote_user(src,'quit')
+            chan.part_remote_user(src,'quit')
     @trace
     def on_notice(self,src,msg,dst):
         for user in self.server.users.values():
