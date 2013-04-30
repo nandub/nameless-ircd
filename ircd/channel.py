@@ -203,7 +203,7 @@ class Channel:
     def part_remote_user(self,name,reason):
         if name in self.remotes:
             self.remotes.remove(name)
-        self._inform_part(name,reason)
+            self._inform_part(name,reason)
 
     @trace
     def has_remote_user(self,name):
