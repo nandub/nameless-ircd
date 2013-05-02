@@ -191,10 +191,13 @@ class link(async_chat):
             if c not in line:
                 self.nfo('invalid s2s line: '+line)
                 return
-        if line.split(':')[1].split(' ')[0].split('@')[1] == self.server.name:
-            self.dbg('dropping repeat line: '+line)
+        try:
+            if line.split(':')[1].split(' ')[0].split('@')[1] == self.server.name:
+                self.dbg('dropping repeat line: '+line)
+                return
+        except:
+            self.err('invalid s2s line: '+line)
             return
-        
         parts = line[1:].split(' ')
         self.dbg('link line '+str(parts))
         if len(parts) > 2:

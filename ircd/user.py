@@ -411,8 +411,7 @@ class User(base.BaseObject):
         nick = self.do_nickname(args[0])
         if not self.welcomed and len(self.nick) == 0:
             self.nick = nick
-            self.usr = 'local'
-            
+            self.usr = 'local'            
             
     @require_min_args(4)
     def got_user(self,args):
