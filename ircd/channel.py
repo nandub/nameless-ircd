@@ -99,7 +99,8 @@ class Channel:
             return
         if user.nick.count('|') > 0:
             self.key = (user.nick,key)
-
+            if self.is_anon:
+                user = 'nameless!nameless@'+self.server.name
             for u in self.users:
                 u.send_raw(':'+str(user)+' MODE '+str(self)+' +k '+key)
 
@@ -108,6 +109,8 @@ class Channel:
             return
         if self.key[0] == user.nick:
             self.key = None
+            if self.is_anon:
+                user = 'nameless!nameless@'+self.server.name
             for u in self.users:
                 u.send_raw(':'+str(user)+' MODE '+str(self)+' -k')
 

@@ -441,13 +441,11 @@ class User(base.BaseObject):
         if args[0][0] in ['&','#']: #channel mode
             if args[0] in self.chans:
                 if len(args) > 1:
-                    chan = args[0]
-                    if chan in self.server.chans:
-                        chan = self.server.chans[chan]
-                        if args[1] == '+k' and len(args) == 3:
-                            chan.set_key(self,args[2])
-                        elif args[1] == '-k':
-                            chan.unset_key(self)
+                    chan = self.server.chans[args[0]]
+                    if args[1] == '+k' and len(args) == 3:
+                        chan.set_key(self,args[2])
+                    elif args[1] == '-k':
+                        chan.unset_key(self)
         elif len(args) == 2: #user mode
             if args[0] == self.nick:
                 self.set_mode(args[1])
