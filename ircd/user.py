@@ -482,7 +482,7 @@ class User(base.BaseObject):
         if dest is not None:
             dest.privmsg(src,msg)
         if self.link is not None:
-            self.link.privmsg(src,dst,msg)
+            self.link.privmsg(src,dest,msg)
     @registered
     @require_min_args(1)
     def got_topic(self,args):
