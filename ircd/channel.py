@@ -190,6 +190,8 @@ class Channel:
                 continue
             # send privmesg
             user.privmsg(src,msg,dst=self)
+        if self.link is not None and not self.is_invisible:
+            self.link.privmsg(orig,self.name,msg)
 
     def send_who(self,user):
         '''

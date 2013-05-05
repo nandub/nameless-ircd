@@ -114,7 +114,7 @@ class link(async_chat):
                     
     @trace
     def on_part(self,user,reason,dst=None):
-        user = str(user)
+        user = self.filter(str(user))
         #nick = self.filter(str(user))
         chan = dst
         self.dbg(user+' part '+chan+' because '+reason)
@@ -130,6 +130,7 @@ class link(async_chat):
     @trace
     def on_quit(self,src,reason,dst=None):
         for chan in list(self.server.chans.values()):
+            src = self.filter(src)
             chan.part_remote_user(src,'quit')
     @trace
     def on_notice(self,src,msg,dst):
