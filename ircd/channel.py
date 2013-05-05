@@ -43,7 +43,7 @@ class Channel:
         for u in self.users:
             if u != user:
                 self.send_topic_to_user(u)
-        if self.link is not None and user is not None:
+        if self.link is not None and user is not None and not self.is_invisible:
             self.link.topic(self.name,self.topic)
     @trace
     def send_raw(self,msg):
@@ -100,7 +100,7 @@ class Channel:
         if user.nick.count('|') > 0:
             self.key = (user.nick,key)
             if self.is_anon:
-                user = 'nameless!nameless@'+self.server.name
+                user = 'nameless!nameless@irc.nameless.tld'
             for u in self.users:
                 u.send_raw(':'+str(user)+' MODE '+str(self)+' +k '+key)
 
@@ -110,7 +110,7 @@ class Channel:
         if self.key[0] == user.nick:
             self.key = None
             if self.is_anon:
-                user = 'nameless!nameless@'+self.server.name
+                user = 'nameless!nameless@irc.nameless.tld'
             for u in self.users:
                 u.send_raw(':'+str(user)+' MODE '+str(self)+' -k')
 

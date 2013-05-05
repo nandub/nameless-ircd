@@ -53,6 +53,8 @@ class link(async_chat):
         
     @trace
     def privmsg(self,src,dst,msg):
+        if str(dst)[1] == '.':
+            return # hacky fix
         if str(dst).startswith('&'):
             src = 'nameless!nameless@irc.nameless.tld'
         self.action('privmsg',src,dst,msg)

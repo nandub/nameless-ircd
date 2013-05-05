@@ -483,6 +483,7 @@ class User(base.BaseObject):
                 target = str(target)
                 if target[0] not in ['&','#'] and target.count('!') > 0:
                     target = target.split('!')[0]
+                self.link.privmsg(self,target,msg)
             # self.send_num(401,target+' :No such nick/channel')
         else:
             dest.privmsg(src,msg)
