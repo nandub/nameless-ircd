@@ -109,8 +109,6 @@ class link(async_chat):
                 return
             if not chan.has_remote_user(user):
                 chan.join_remote_user(user)
-            else:
-                self.notice('chanserv!chanserv@'+self.server.name,user,'already joined '+str(chan))
                     
     @trace
     def on_part(self,user,reason,dst=None):

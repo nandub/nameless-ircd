@@ -223,10 +223,7 @@ class Channel:
         if len(self) < self.limit:
             self.remotes.append(name)
             self.send_raw(':'+name+' JOIN :'+self.name)
-        else:
-            if self.link is not None:
-                self.link.send_line(':'+name+' NOTICE '+self.name+' channel is full')
-                
+
     @trace
     def part_remote_user(self,name,reason):
         if name in self.remotes and not self.is_invisible:
