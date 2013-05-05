@@ -170,6 +170,7 @@ class User(base.BaseObject):
         if 'P' in self.modes and dst is not None:
             msg = self.filter_message(msg)
         self.action(src,'privmsg',msg,dst=dst)
+
     def action(self,src,type,msg,dst=None):
         '''
         send an event from src with type type with contents msg from dst
@@ -480,7 +481,8 @@ class User(base.BaseObject):
                         dest = user
         if dest is not None:
             dest.privmsg(src,msg)
-
+        if self.link is not None:
+            self.link.privmsg(src,dst,msg)
     @registered
     @require_min_args(1)
     def got_topic(self,args):
