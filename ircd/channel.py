@@ -190,8 +190,6 @@ class Channel:
                 continue
             # send privmesg
             user.privmsg(src,msg,dst=self)
-        if self.link is not None and not self.is_invisible:
-            self.link.privmsg(orig,self.name,msg)
 
     def send_who(self,user):
         '''
@@ -233,8 +231,8 @@ class Channel:
     def part_remote_user(self,name,reason):
         if name in self.remotes and not self.is_invisible:
             self.remotes.remove(name)
-            self._inform_part(name,reason)
-
+            self.send_raw(':'+name+' PART :'+self.name)
+            
     @trace
     def has_remote_user(self,name):
         nick = name.split('!')[0]
