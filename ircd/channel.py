@@ -191,9 +191,6 @@ class Channel:
             # send privmesg
             user.privmsg(src,msg,dst=self)
 
-        if not self.is_invisible:    
-            self.link.privmsg(src,self,msg)
-
     def send_who(self,user):
         '''
         send WHO to user
