@@ -478,15 +478,14 @@ class User(base.BaseObject):
                 for user in self.server.users.values():
                     if hasattr(user,'trip') and user.trip == target:
                         dest = user
-        if dest is None:
-            if self.link is not None:
-                target = str(target)
-                if target[0] not in ['&','#'] and target.count('!') > 0:
-                    target = target.split('!')[0]
-                self.link.privmsg(self,target,msg)
-            # self.send_num(401,target+' :No such nick/channel')
-        else:
+        if dest is not None:
             dest.privmsg(src,msg)
+
+        if self.link is not None:
+            target = str(target)
+            if target[0] not in ['&','#'] and target.count('!') > 0:
+                target = target.split('!')[0]
+            self.link.privmsg(self,target,msg)
     @registered
     @require_min_args(1)
     def got_topic(self,args):
