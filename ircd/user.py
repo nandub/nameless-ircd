@@ -192,7 +192,10 @@ class User(base.BaseObject):
         for u in users:
             if u.id == self.id:
                 continue
-            hook(u)
+            try:
+                hook(u)
+            except:
+                self.server.handle_error()
 
 
     def close_user(self,reason='quit'):
@@ -257,7 +260,7 @@ class User(base.BaseObject):
     def get_full_trip(self):
         return self.trip + '!tripfag@'+self.server.name
 
-    def join(self,chan):
+    def join(self,chan,key=None):
         '''
         join a channel
         '''
@@ -271,9 +274,15 @@ class User(base.BaseObject):
             if chan not in self.server.chans:
                 self.server.new_channel(chan)
                 self.chanserv('new channel: '+chan)
-            self.server.chans[chan].joined(self)
-            self.chans.append(chan)
-
+            if self.server.chans[chan].key is None:
+                self.server.chans[chan].joined(self)
+                self.chans.append(chan)
+            elif key is None or self.server.chans[chan].key[1] != key:
+                self.send_raw(':'+self.server.name+' 475 '+chan+' :cannot join (+k)')
+            else:
+                self.server.chans[chan].joined(self)
+                self.chans.append(chan)
+               
     
     def part(self,chan):
         '''
@@ -283,7 +292,9 @@ class User(base.BaseObject):
         if chan in self.chans:
             self.chans.remove(chan)
         if chan in self.server.chans:
-            self.server.chans[chan].part_user(self)
+            chan = self.server.chans[chan]
+            if self in chan.users:
+                chan.part_user(self)
 
     def topic(self,channame,msg):
         '''
@@ -341,6 +352,9 @@ class User(base.BaseObject):
             for c in ch[1:]:
                 self.modes[c] = ch[0] in '+-' and ch[0] or '-'
                 self.send_raw(':%s MODE %s :%s'%(self.nick,self.nick,self.modes[c]))
+
+    def get_full_name(self):
+        return self.nick+'!user@'+self.server.name
      
     def timeout(self):
         '''
@@ -426,8 +440,14 @@ class User(base.BaseObject):
     def got_mode(self,args):        
         if args[0][0] in ['&','#']: #channel mode
             if args[0] in self.chans:
-                if len(args) == 3:
-                    self.set_mode(args[2])
+                if len(args) > 1:
+                    chan = args[0]
+                    if chan in self.server.chans:
+                        chan = self.server.chans[chan]
+                        if args[1] == '+k' and len(args) == 3:
+                            chan.set_key(self,args[2])
+                        elif args[1] == '-k':
+                            chan.unset_key(self)
         elif len(args) == 2: #user mode
             if args[0] == self.nick:
                 self.set_mode(args[1])
@@ -450,13 +470,9 @@ class User(base.BaseObject):
         target = args[0]
         dest = None
         src = self
-        if 'T' in self.modes and self.trip is not None:
-            src = self.get_full_trip()
         if target[0] in ['&','#']:
             if target in self.chans or target in self.server.chans:
                 dest = self.server.chans[target]
-                if self.link is not None:
-                    self.link.privmsg(src,dest,msg)
         else:
             if target in self.server.users:
                 dest = self.server.users[target]
@@ -469,7 +485,6 @@ class User(base.BaseObject):
                 target = str(target)
                 if target[0] not in ['&','#'] and target.count('!') > 0:
                     target = target.split('!')[0]
-                self.link.privmsg(str(src),target,msg)
             # self.send_num(401,target+' :No such nick/channel')
         else:
             dest.privmsg(src,msg)
@@ -490,9 +505,18 @@ class User(base.BaseObject):
     @registered
     @require_min_args(1)
     def got_join(self,args):
-        for chan in args[0].split(','):
-            self.join(chan)
-    
+        chans = args[0].split(',')
+        if len(args) > 1:
+            passwds = args[1].split(',')
+            
+            if len(passwds) == len(chans):
+                for chan in chans:
+                    self.join(chan,passwds.pop())
+            else:
+                self.chanserv('bad format for join')
+        else:
+            for chan in chans:
+                self.join(chan)
     @registered
     @require_min_args(1)
     def got_names(self,args):

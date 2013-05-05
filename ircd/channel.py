@@ -20,7 +20,7 @@ class Channel:
         self._trips = locking_dict()
         self.remotes = []
         self.limit = 300
-    
+        self.key = None
     
     def expunge(self,reason):
         for user in self.remotes:
@@ -40,7 +40,9 @@ class Channel:
             return
         self.topic = topic
         util.put(self.name,topic)
-        self.send_topic()
+        for u in self.users:
+            if u != user:
+                self.send_topic_to_user(u)
         if self.link is not None and user is not None:
             self.link.topic(self.name,self.topic)
     @trace
@@ -92,11 +94,29 @@ class Channel:
 
         user.send_num(332 ,self.name+' :'+self.topic)
 
+    def set_key(self,user,key):
+        if not self.is_invisible or self.key is not None:
+            return
+        if user.nick.count('|') > 0:
+            self.key = (user.nick,key)
+
+            for u in self.users:
+                u.send_raw(':'+str(user)+' MODE '+str(self)+' +k '+key)
+
+    def unset_key(self,user):
+        if not self.is_invisible or self.key is None:
+            return
+        if self.key[0] == user.nick:
+            self.key = None
+            for u in self.users:
+                u.send_raw(':'+str(user)+' MODE '+str(self)+' -k')
+
     @trace
     def joined(self,user):
         ''' 
         called when a user joins the channel
         '''
+
         for u in self.users:
             if u.nick == user.nick:
                 user.send_num('443',str(user)+' '+str(self)+' :is already on channel')
@@ -111,8 +131,8 @@ class Channel:
             # send join to just the user for anon channel
             user.event(str(user),'join',self.name)
         else:
-            # otherwise broadcast joi
-            if self.link is not None:
+            # otherwise broadcast join
+            if self.link is not None and not self.is_invisible:
                 self.link.join(user,self.name)
             for u in self.users:
                 u.event(str(user),'join',self.name)
@@ -130,7 +150,7 @@ class Channel:
             for u in self.users:
                 # send part to all users
                 u.action(user,'part',reason,dst=self.name)
-            if self.link is not None:
+            if self.link is not None and not self.is_invisible:
                 self.link.part(user,self.name,dst=reason)
         
 
@@ -156,15 +176,21 @@ class Channel:
         '''
         send a private message from the channel to all users in the channel
         '''
+
+        src = str(orig)
+
+        if self.is_anon:
+            src = 'nameless!nameless@' + str(self.server.name)
+
         for user in self.users:
             if user == orig:
                 continue
-            src = 'nameless!user@' + str(self.server.name)
-            if not self.is_anon: # case non anon channel
-                src = str(orig)
             # send privmesg
             user.privmsg(src,msg,dst=self)
-        
+
+        if not self.is_invisible:    
+            self.link.privmsg(src,self,msg)
+
     def send_who(self,user):
         '''
         send WHO to user
@@ -192,6 +218,8 @@ class Channel:
 
     @trace
     def join_remote_user(self,name):
+        if self.is_invisible:
+            return
         if len(self) < self.limit:
             self.remotes.append(name)
             self.send_raw(':'+name+' JOIN :'+self.name)
@@ -201,7 +229,7 @@ class Channel:
                 
     @trace
     def part_remote_user(self,name,reason):
-        if name in self.remotes:
+        if name in self.remotes and not self.is_invisible:
             self.remotes.remove(name)
             self._inform_part(name,reason)
 
@@ -211,4 +239,4 @@ class Channel:
         for remote in self.remotes:
             if nick == remote.split('!')[0]:
                 return True
-        return nick in self.users
+        return nick in self.users and not self.is_invisible
