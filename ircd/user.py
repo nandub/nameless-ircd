@@ -481,7 +481,7 @@ class User(base.BaseObject):
                         dest = user
         if dest is not None:
             dest.privmsg(src,msg)
-        if self.link is not None:
+        if self.link is not None not hasattr(dest,'nick'): # check for local user
             self.link.privmsg(src,dest,msg)
     @registered
     @require_min_args(1)
