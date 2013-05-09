@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import server, user, adminserv, util, s2s
+import server, user, adminserv, util, s2s, torchat
 import signal, traceback, asyncore, json, sys
 from threading import Thread
 
@@ -35,6 +35,8 @@ def main():
 
     ap.add_argument('--trace',action='store_const',const=True,default=False,
                     dest='trace',help='function debug trace')
+
+    ap.add_argument('--torchat',help='torchat address',default=None)
 
     ap.add_argument('--name',type=str,help='server name',default='nameless')
 
@@ -88,6 +90,9 @@ def main():
     elif args.local_urc:
         link.local_link(args.local_urc)
     serv.link = link
+
+    if args.torchat:
+        tcserv = torchat.torchat(serv,args.torchat,torchat.nameless_client)
     # run mainloop
     try:
         asyncore.loop(timeout=10)

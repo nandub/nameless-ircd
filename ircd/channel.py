@@ -19,6 +19,7 @@ class Channel:
         self.is_invisible = self.name[1] == '.'
         self._trips = locking_dict()
         self.remotes = []
+        self.torchats = []
         self.limit = 300
         self.key = None
     
@@ -119,56 +120,69 @@ class Channel:
         ''' 
         called when a user joins the channel
         '''
-
-        for u in self.users:
-            if u.nick == user.nick:
-                user.send_num('443',str(user)+' '+str(self)+' :is already on channel')
-                return
+        tc = hasattr(user,'onion')
+        if not tc:
+            for u in self.users:
+                if u.nick == user.nick:
+                    user.send_num('443',str(user)+' '+str(self)+' :is already on channel')
+                    return
         if len(self) > self.limit:
             user.notice(self.name,'channel is full')
             return
         # add to users in channel
-        self.users.append(user)
+        if not tc:
+            self.users.append(user)
         
         if self.is_anon:
             # send join to just the user for anon channel
-            user.event(str(user),'join',self.name)
+            if not tc:
+                user.event(str(user),'join',self.name)
         else:
             # otherwise broadcast join
             if self.link is not None and not self.is_invisible:
                 self.link.join(user,self.name)
             for u in self.users:
                 u.event(str(user),'join',self.name)
-        # send topic
-        self.send_topic_to_user(user)
-        # send who
-        self.send_who(user)
-
+        if not tc:
+            # send topic
+            self.send_topic_to_user(user)
+            # send who
+            self.send_who(user)
+        msg = tc and 'torchat user '+user.onion+' joined the channel' or 'user '+str(user).split('!')[0] + ' joined the channel'
+        for u in self.torchats:
+            u.send_msg(msg)
 
     def part_user(self,user,reason='durr'):
         self._user_quit(user,reason)
 
     def _inform_part(self,user,reason):
+        nick = str(user).split('!')[0]
         if not self.is_anon: # case non anon channel
             for u in self.users:
                 # send part to all users
-                u.action(user,'part',reason,dst=self.name)
+                u.action(nick,'part',reason,dst=self.name)
             if self.link is not None and not self.is_invisible:
-                self.link.part(user,self.name,dst=reason)
-        
-
+                self.link.part(str(user),self.name,dst=reason)
+            tc = hasattr(user,'onion')
+            msg = tc and 'torchat user '+user.onion+' left the channel' or 'user '+nick+ ' left the channel'
+            for u in self.torchats:
+                u.send_msg(u)
+                
+                
     def _user_quit(self,user,reason):
         '''
         called when a user parts the channel
         '''
+        tc = hasattr(user,'onion')
         # remove from channel
-        if user in self.users: 
+        if user in self.users and not tc: 
             self.users.remove(user) 
-        if user.id in self._trips:
+        if not tc and user.id in self._trips:
             for trip in self._trips[user.id]:
                 self._inform_part(trip,reason)
         # send part to user
-        user.action(user,'part',reason,dst=self.name)
+        if not tc:
+            user.action(user,'part',reason,dst=self.name)
         self._inform_part(user,reason)
         # inform channel if needed
         # expunge empty channel
@@ -190,6 +204,30 @@ class Channel:
                 continue
             # send privmesg
             user.privmsg(src,msg,dst=self)
+
+        for tc in self.torchats:
+            if orig == tc:
+                continue
+            tc.privmsg(src.split('!')[0],msg)
+
+
+    def join_torchat(self,tc):
+        if self.key is None:
+            if tc not in self.torchats:
+                self.torchats.append(tc)
+                self.joined(tc)
+            else:
+                tc.send_msg('already in channel '+self.name)
+        else:
+            tc.send_msg('cannot join password protected channel')
+
+    def part_torchat(self,tc):
+        if tc in self.torchats:
+            self.torchats.remove(tc)
+            tc.send_msg('left channel '+self.name)
+            self.part_user(tc)
+        else:
+            tc.send_msg('not in channel '+self.name)
 
     def send_who(self,user):
         '''
@@ -220,6 +258,12 @@ class Channel:
     def join_remote_user(self,name):
         if self.is_invisible:
             return
+        nick = name.split('!')[0]
+        for tc in self.torchats:
+            if tc.onion == nick:
+                if self.link is not None:
+                    self.link.notice(self.name,nick,'will not join spoofed torchat user :p')
+                return
         if len(self) < self.limit:
             self.remotes.append(name)
             self.send_raw(':'+name+' JOIN :'+self.name)
@@ -235,5 +279,8 @@ class Channel:
         nick = name.split('!')[0]
         for remote in self.remotes:
             if nick == remote.split('!')[0]:
+                return True
+        for tc in self.torchats:
+            if tc.onion == nick:
                 return True
         return nick in self.users and not self.is_invisible
