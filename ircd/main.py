@@ -84,7 +84,8 @@ def main():
     link = not args.no_link
     if link:
         print ('enabling link')
-    link = s2s.linkserv(serv,('127.0.0.1',args.link_port),allow_link=link)
+    localhost = args.ipv6 and '::1' or '127.0.0.1'
+    link = s2s.linkserv(serv,(localhost,args.link_port),ipv6=args.ipv6,allow_link=link)
     if args.onion_urc:
         link.tor_link(args.onion_urc,6660)
     elif args.i2p_urc:
