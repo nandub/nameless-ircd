@@ -54,7 +54,9 @@ def main():
     ap.add_argument('--remote-urc',type=str,help='remote host for s2s via urc',default=None)
 
     ap.add_argument('--link-port',type=int,help='linkserv port to bind on',default=6660)
-
+    
+    ap.add_argument('--link-host',type=str,help='linkserv host to bind on',default='localhost')
+    
     ap.add_argument('--no-link',action='store_const',const=True,default=False,
                     dest='no_link',help='disable incoming links')
     # parse args
@@ -85,7 +87,8 @@ def main():
     if link:
         print ('enabling link')
     localhost = args.ipv6 and '::1' or '127.0.0.1'
-    link = s2s.linkserv(serv,(localhost,args.link_port),ipv6=args.ipv6,allow_link=link)
+    linkhost = args.link_host != 'localhost' and args.link_host or localhost
+    link = s2s.linkserv(serv,(linkhost,args.link_port),ipv6=args.ipv6,allow_link=link)
     if args.onion_urc:
         link.tor_link(args.onion_urc,6660)
     elif args.i2p_urc:
