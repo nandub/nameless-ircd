@@ -51,6 +51,8 @@ def main():
 
     ap.add_argument('--local-urc',type=str,help='port for s2s via URC on loopback',default=None)
 
+    ap.add_argument('--remote-urc',type=str,help='remote host for s2s via urc',default=None)
+
     ap.add_argument('--link-port',type=int,help='linkserv port to bind on',default=6660)
 
     ap.add_argument('--no-link',action='store_const',const=True,default=False,
@@ -89,6 +91,11 @@ def main():
         link.i2p_link(args.i2p_urc)
     elif args.local_urc:
         link.local_link(args.local_urc)
+    elif args.remote_urc:
+        if args.ipv6:
+            link.ipv6_link(args.remote_urc)
+        else:
+            link.ipv4_link(args.remote_urc)
     serv.link = link
 
     if args.torchat:

@@ -386,6 +386,20 @@ class linkserv(dispatcher):
     def tor_link(self,host,port=6660):
         self._link(lambda : util.tor_connect(host,int(port)),str(host))
 
+    def ipv6_link(self,host,port=6660):
+        def connect():
+            sock = socket.socket(socket.AF_INET6)
+            sock.connect((host,port))
+            return sock, None
+        self._link(connect,'remote6-'+host)
+
+    def ipv4_link(self,host,port=6660):
+        def connect():
+            sock = socket.socket()
+            sock.connect((host,port))
+            return sock, None
+        self._link(connect,'remote4-'+host)
+
     def on_link_closed(self,link):
         name = str(link.name)
         self.dbg('link '+name+' closed')
