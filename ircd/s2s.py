@@ -122,9 +122,7 @@ class link(async_chat):
                 return
             if chan.has_remote_user(user):
                 chan.part_remote_user(user,reason)
-            else:
-                self.notice('chanserv!chanserv@'+self.server.name,user,'not in '+str(chan))
-
+            
     @trace
     def on_quit(self,src,reason,dst=None):
         for chan in list(self.server.chans.values()):
@@ -356,7 +354,7 @@ class linkserv(dispatcher):
         l.name = str(name)
         l.reconnect = reconnect
         self.links.append(l)
-        self.server.send_global('link '+l.name+' up')
+        #self.server.send_global('link '+l.name+' up')
 
     def _link(self,connect,name):
         def f(name):
@@ -403,7 +401,7 @@ class linkserv(dispatcher):
     def on_link_closed(self,link):
         name = str(link.name)
         self.dbg('link '+name+' closed')
-        self.server.send_global('link '+name+' down')
+        #self.server.send_global('link '+name+' down')
         if link in self.links:
             self.links.remove(link)
             if link.reconnect is not None:
