@@ -59,6 +59,9 @@ def main():
     
     ap.add_argument('--no-link',action='store_const',const=True,default=False,
                     dest='no_link',help='disable incoming links')
+
+    ap.add_argument('--link-auth',action='store_const',const=True,default=False,help='require link authorization')
+
     # parse args
     args = ap.parse_args()
     # check for SIGHUP
@@ -76,7 +79,13 @@ def main():
     if args.admin:
         cfgs['adminserv'] = ''
     util.toggle_trace = args.trace
-    serv = server.Server((args.host,args.port),args.name,do_log=log,ipv6=args.ipv6,configs=cfgs)
+    serv = server.Server(
+        (args.host,args.port),args.name,
+        do_log=log,
+        ipv6=args.ipv6,
+        configs=cfgs,
+        link_auth=args.link_auth
+        )
     # make adminserv
     #if args.admin:
     #    adminserv.handler(serv,port=args.adminport)

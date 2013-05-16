@@ -162,6 +162,8 @@ class out_handler(handler):
         self.dbg('new out with cookie='+self.cookie)
 
     def send_update(self):
+        if int(time.time()) % 5 == 0:
+            self.send_line('status available')
         self.pump_client()
 
     def got_line(self,line):

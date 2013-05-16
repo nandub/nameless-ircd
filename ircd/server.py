@@ -371,7 +371,7 @@ class Server(dispatcher):
     def _log(self,type,msg):
         if self._no_log and type.lower() not in ['nfo','err','ftl']:
             return
-        print ('['+str(int(now()))+'] '+type + ' ' + msg)
+        print ('['+str(int(now()))+'] '+type + ' ' + str([msg]))
         
         #with open('log/server.log','a') as f:
         #    f.write('[%s -- %s] %s\n'%(type,now(),msg))

@@ -303,6 +303,9 @@ class adminserv(services.Service):
         user:nickname
             list channels user is in
 
+        links
+            list server links
+
         """
         if len(args) > 0:
             for targ in args:
@@ -310,6 +313,8 @@ class adminserv(services.Service):
                 targ = targ.lower()
                 if len(targ) == 0:
                     continue
+                elif targ == 'links':
+                    i = self.server.link.links
                 elif targ == 'users':
                     i = self.server.users
                 elif targ == 'chans':

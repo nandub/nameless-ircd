@@ -10,12 +10,18 @@ class link(async_chat):
     generic link
     """
 
+    is_authed = False
+
+
+
     def __init__(self,sock,parent,reconnect=None):
+        self.name = None
         self.flood = parent.server.flood
         self.parent = parent
         self.server = parent.server
         self.dbg = self.server.dbg
         self.nfo = self.server.nfo
+        self.err = self.server.err
         async_chat.__init__(self,sock)
         self.set_terminator(b'\n')
         self.relay = True
@@ -28,8 +34,13 @@ class link(async_chat):
             'part':self.on_part,
             'topic':self.on_topic,
             'kick':self.on_kick,
-            'quit':self.on_quit
+            'quit':self.on_quit,
+            'server':self.on_server
             }
+
+        self.children = []
+        self.send_initial_servers()
+
     def collect_incoming_data(self,data):
         self.ibuff.append(data)
 
@@ -178,6 +189,12 @@ class link(async_chat):
                 chan.join_remote_user(src)
             chan.privmsg(src,msg)
 
+    def _should_drop_line(self,line):
+        return False
+    
+    def send_initial_servers(self):
+        pass
+
     @trace
     def on_line(self,line):
         self.dbg(str(self)+' link recv <-- '+str(line))
@@ -185,6 +202,14 @@ class link(async_chat):
         if self.flood.line_is_flooding(line):
             self.dbg('drop flood')
             return
+        if line.startswith('SERVER'):
+            self._handle_server_register(line)
+        elif 'SERVER' in line and line.startswith(':'):
+            return
+
+        if self._should_drop_line(line):
+            return
+
         for c in [':','@',' ']:
             if c not in line:
                 self.nfo('invalid s2s line: '+line)
@@ -194,7 +219,7 @@ class link(async_chat):
                 self.dbg('dropping repeat line: '+line)
                 return
         except:
-            self.err('invalid s2s line: '+line)
+            self.nfo('invalid s2s line: '+line)
             return
         parts = line[1:].split(' ')
         self.dbg('link line '+str(parts))
@@ -202,13 +227,12 @@ class link(async_chat):
             src, action, dst = tuple(parts[:3])
             action = action.lower()
             self.dbg('action='+str(action))
-            if action in self._actions:
-                if not self._actions[action](src,(' '.join(line.split(' ')[3:]))[1:],dst=dst):
-                    for link in self.parent.links:
-                        if link == self:
-                            continue
-                        link.send_line(line)
-
+            if not ( action in self._actions and self._actions[action](src,(' '.join(line.split(' ')[3:]))[1:],dst=dst) ):
+                for link in self.parent.links:
+                    if link == self:
+                        continue
+                    link.send_line(line)
+                        
     def handle_error(self):
         self.parent.handle_error()
         self.handle_close()
@@ -226,62 +250,85 @@ class link(async_chat):
         self.push(line.encode(encoding,errors='replace'))
         self.push(b'\n')
 
+    def _handle_server_register(self,line):
+        
+        # format is
+        #
+        # SERVER name.of.server 0 0 :name.of.child1,name.of.child2,name.of.child3
+        # given that there are 3 child servers from the incomming connection
+        # 
+        # for no children format is
+        #
+        # SERVER name.of.server 0 0 :name.of.server
+        #
+        parts = line.split(' ')
+        if len(parts) < 5:
+            self.close_when_done()
+            return
+        server_name = parts[1]
+        response_parts = [server_name]
+        self.name = server_name
+        if self.parent.register_server(server_name,self):
+            # get children from info as comma separated values
+            for part in (' '.join(parts[4:]))[1:].split(','):
+                part = part.strip()
+                if self.parent.register_server(part,self):
+                    response_parts.append(part)
+            
+                    # response info has the servers that were accepted
+                    #
+                    # format is
+                    #
+                    # :our.server.name SERVER our.server.name 0 0 :name.of.server,name.of.child1
+                    #
+            response = ':'+self.server.name+' SERVER '+self.server.name+' 0 0 :'
+            response += ','.join(response_parts)
+            response = response[-1] == ',' and response[:-1] or response
+            self.send_line(response)
+
+    def on_server(self,*args,**kwds):
+        pass
+
+    def _should_drop_line(self,line):
+        ret = self.parent.require_auth
+        if ret:
+            if line[0] == ':' and ' ' in line:
+                server_name = line.split(' ')[0]
+                ret = server_name not in self.children
+        return ret
 
 class incoming_link(link):
     
-    is_authed = False
+    def on_server(self,src,msg,dst):
+        self.dbg('link on_server src='+src+' dst='+dst+' msg='+msg)
 
-    @trace
-    def on_line(self,line):
-        self.check_auth(line)
-        if self.is_authed:
-            link.on_line(self,line)
+    def _should_drop_line(self,line):
+        if line.startswith('SERVER'):
+            return False
+        if line[0] == ':':
+            return False
+        self.close_when_done()
+        return True
 
-    def _check_line(self,line):
-        # incomming server registers themself and their children
-        if line.startswith('SERVER '):
-            # format is
-            #
-            # SERVER name.of.server 0 0 :name.of.child1,name.of.child2,name.of.child3
-            # given that there are 3 child servers from the incomming connection
-            # 
-            # for no children format is
-            #
-            # SERVER name.of.server 0 0 :name.of.server
-            #
-            parts = line.split(' ')
-            if len(parts) < 5:
-                self.close_when_done()
-                return False
-            server_name = parts[1]
-            response_parts = [server_name]
-            if self.server.register_server(server_name):
-                # get children from info as comma separated values
-                for part in (' '.join(parts[4:]))[1:].split(','):
-                    part = part.strip()
-                    if self.server.register_server(part):
-                        response_parts.append(part)
-            
-                # response info has the servers that were accepted
-                #
-                # format is
-                #
-                # :our.server.name SERVER our.server.name 0 0 :name.of.server,name.of.child1
-                #
-                response = ':'+self.server.name+' SERVER '+self.server.name+' 0 0 :'
-                response += ','.join(response_parts)
-                self.send_line(response[:-1])
-                return True
-            else:
-                self.close_when_done()
-        return False
+    def __str__(self):
+        return 'incomming link name='+str(self.name)
+    
+class outgoing_link(link):
 
-    @trace
-    def check_auth(self,line):
-        if self.server.require_auth:
-            self.is_authed = not self.is_authed and self._check_line(line) or self.is_authed
-        else:
-            self.is_authed = True
+    def send_initial_servers(self):
+        """
+        send on intial connection what all our servers are
+        """
+        if self.parent.require_auth:
+            request = 'SERVER '+self.server.name+' 0 0 :'
+            for link in self.parent.links:
+                if link == self or link.name is None:
+                    continue
+                request += link.name+','
+            self.send_line(request[:-1])
+        
+    def __str__(self):
+        return 'outgoing link '+link.__str__(self)
 
 class linkserv(dispatcher):
     """
@@ -300,11 +347,14 @@ class linkserv(dispatcher):
             self.readable = lambda: False
             self.writeable = lambda: False
             self.handle_accepted = lambda a,b: None
+
         self.server = parent
         self.links = []
+        self.servers = {}
         self.dbg = parent.dbg
         self.nfo = parent.nfo
-    
+        self.require_auth = parent.require_auth
+
     def reconnect_all(self):
         links = []
         for link in self.links:
@@ -347,12 +397,16 @@ class linkserv(dispatcher):
             if link.relay:
                 link.topic(src,topic)
 
-    def _new_link(self,sock,reconnect,name,link_class=link):
+    def _new_link(self,sock,reconnect,name,link_class=outgoing_link):
         if not self.server.on:
             return
         l = link_class(sock,self)
-        l.name = str(name)
+        l.name = None
         l.reconnect = reconnect
+        # announce child link
+        for link in self.links:
+            if l.name is not None:
+                link.send_line('SERVER '+self.server.name+' 0 0 :'+l.name)
         self.links.append(l)
         #self.server.send_global('link '+l.name+' up')
 
@@ -362,14 +416,22 @@ class linkserv(dispatcher):
             sock = None
             err = None
             while sock is None and self.server.on:
-                time.sleep(1)
                 try:
                     sock , err = connect()
                 except:
                     self.nfo('link '+str(name)+' failed reconnect')
-                    
+                if sock is None:
+                    time.sleep(10)
+
             self._new_link(sock,lambda : self._link(connect,name),name)
         threading.Thread(target=f,args=(name,)).start()
+
+    def register_server(self,server_name,link):
+        if server_name in self.servers:
+            return False
+        self.servers[server_name] = link
+        link.children.append(server_name)
+        return True
 
     def local_link(self,port):
         def connect():
