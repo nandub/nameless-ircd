@@ -184,7 +184,10 @@ class link(async_chat):
             if chan.is_anon:
                 chan.privmsg('nameless!nameless@irc.nameless.tld',msg)
                 return
-            #nick = self.filter(src)
+            nick = self.filter(src)
+            for u in chan.users:
+                if u.nick == nick:
+                    return
             if not chan.has_remote_user(src):
                 chan.join_remote_user(src)
             chan.privmsg(src,msg)
