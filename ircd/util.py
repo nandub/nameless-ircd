@@ -76,7 +76,7 @@ if os.path.exists('salt'):
 
 _symbols = ''
 for n in range(128):
-    if n > 0 and chr(n) not in string.letters:
+    if n > 0 and chr(n) not in string.ascii_letters:
         _symbols += chr(n)
     
 def filter_message(s,replacement,whitelist):
