@@ -25,7 +25,7 @@ class Channel:
     
     def expunge(self,reason):
         for user in self.remotes:
-            self.send_raw(':'+user+' PART '+self.name+' :'+reason)
+            self.send_raw({'src':user,'cmd':'PART','target':self,'param':reason})
         self.remotes = []
         for user in self.users:
             self.part_user(user,reason=reason)
@@ -37,7 +37,7 @@ class Channel:
         set the topic by a user to string topic
         '''
         if user is not None and user not in self.users:
-            user.send_num(442, self.name+" :You're not on that channel")
+            user.send_num(442, "You're not on that channel",target=self)
             return
         self.topic = topic
         util.put(self.name,topic)
@@ -65,23 +65,7 @@ class Channel:
         send topic to all users in channel
         '''
         for user in self.users:
-            self.send_topic_to_user(user)
-
-    @trace
-    def add_trip(self,user):
-        if user.id not in self._trips:
-            self._trips[user.id] = []
-        self._trips[user.id].append(user.get_full_trip())
-        self.send_raw(':'+user.get_full_trip()+' JOIN '+self.name)
-        if self.link is not None:
-            self.link.join(user.get_full_trip(),self.name)
-    @trace
-    def remove_trip(self,user):
-        if user.id in self._trips:
-            for trip in self._trips[user.id]:
-                self._inform_part(trip,'durr')
-            self._trips[user.id] = []
-        
+            self.send_topic_to_user(user)        
     
     def send_topic_to_user(self,user):
         '''
@@ -90,10 +74,10 @@ class Channel:
         if user not in self.users:
             return
         if self.topic is None:
-            user.send_num(331,'%s :No topic is set'%self.name)
+            user.send_num(331,'No Topic',target=self)
             return
 
-        user.send_num(332 ,self.name+' :'+self.topic)
+        user.send_num(332 ,self.topic,target=self)
 
     def set_key(self,user,key):
         if not self.is_invisible or self.key is not None:
@@ -103,7 +87,7 @@ class Channel:
             if self.is_anon:
                 user = 'nameless!nameless@irc.nameless.tld'
             for u in self.users:
-                u.send_raw(':'+str(user)+' MODE '+str(self)+' +k '+key)
+                u.send_raw({'src':user,'cmd':'MODE','target':self,'param': 'k '+self.key})
 
     def unset_key(self,user):
         if not self.is_invisible or self.key is None:
@@ -113,7 +97,7 @@ class Channel:
             if self.is_anon:
                 user = 'nameless!nameless@irc.nameless.tld'
             for u in self.users:
-                u.send_raw(':'+str(user)+' MODE '+str(self)+' -k')
+                u.send_raw({'src':user,'cmd':'MODE','taget':self,'param':'-k'})
 
     @trace
     def joined(self,user):
@@ -124,10 +108,10 @@ class Channel:
         if not tc:
             for u in self.users:
                 if u.nick == user.nick:
-                    user.send_num('443',str(user)+' '+str(self)+' :is already on channel')
+                    user.send_num(443,'Already In Channel',target=self)
                     return
         if len(self) > self.limit:
-            user.notice(self.name,'channel is full')
+            user.notice(self.name,'channel is full (%s) users'%len(self))
             return
         # add to users in channel
         if not tc:
@@ -177,9 +161,6 @@ class Channel:
         # remove from channel
         if user in self.users and not tc: 
             self.users.remove(user) 
-        if not tc and user.id in self._trips:
-            for trip in self._trips[user.id]:
-                self._inform_part(trip,reason)
         # send part to user
         if not tc:
             user.action(user,'part',reason,dst=self.name)
@@ -203,7 +184,7 @@ class Channel:
             if user == orig:
                 continue
             # send privmesg
-            user.privmsg(src,msg,dst=self)
+            user.send_raw({'src':src,'cmd':'PRIVMSG','target':self.name,'param':msg})
 
         for tc in self.torchats:
             if orig == tc:
@@ -243,16 +224,15 @@ class Channel:
                 if u.nick == user.nick:
                     continue
                 nicks += ' ' + u.nick
-
-        user.send_num(353,'%s %s :%s'%(mod, self.name,nicks.strip()))
+        user.send_num(353,nicks.strip(),target=mod +' ' + self.name)
         nicks = ''
         for u in self.remotes:
             nicks += u.split('!')[0]
             nicks += ' '
         nicks = nicks.strip()
         if len(nicks) > 0:
-            user.send_num(353,'%s %s :%s'%(mod, self.name,nicks))
-        user.send_num(366,'%s :End of NAMES list'%self.name)
+            user.send_num(353,self.nicks,target=mod+' '+self.name)
+        user.send_num(366,'End of NAMES list',target=self)
 
     @trace
     def join_remote_user(self,name):
@@ -266,13 +246,13 @@ class Channel:
                 return
         if len(self) < self.limit:
             self.remotes.append(name)
-            self.send_raw(':'+name+' JOIN :'+self.name)
+            self.send_raw({'src':name,'cmd':'JOIN','param':self})
 
     @trace
     def part_remote_user(self,name,reason):
         if name in self.remotes and not self.is_invisible:
             self.remotes.remove(name)
-            self.send_raw(':'+name+' PART :'+self.name)
+            self.send_raw({'src':name,'cmd':'PART','param':self})
             
     @trace
     def has_remote_user(self,name):

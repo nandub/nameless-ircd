@@ -16,17 +16,17 @@ def registered(f):
             user.send_num(451,':You have not registered')
     return func
 
-@util.decorate
-def require_min_args(f,l):
-    @wraps(f)
-    def func(*args,**kwds):
-        user = args[0]
-        if len(args[1]) < l:
-            name = f.__name__.split('got_')[-1].upper()
-            user.send_num(461,name+' :Not Enough Parameters')
-        else:
-            f(*args,**kwds)
-    return func
+#@util.decorate
+#def require_min_args(f,l):
+#    @wraps(f)
+#    def func(*args,**kwds):
+#        user = args[0]
+#        if len(args[1]) < l:
+#            name = f.__name__.split('got_')[-1].upper()
+#            user.send_num(461,name+' :Not Enough Parameters')
+#        else:
+#            f(*args,**kwds)
+#    return func
 
 class mode:
     def __init__(self,name,val):
@@ -103,9 +103,7 @@ class User(base.BaseObject):
         self.last_ping_recv = now()
         self.last_ping_send = 0
         self.usr = ''
-        self.name = ''
         self.nick = ''
-        self.trip = None
         self.id = self._rand_nick(6)
         self.last_ping = 0
         self.last_topic = 0
@@ -117,13 +115,12 @@ class User(base.BaseObject):
             'ABCDEFGHIJKLMNOPQRSTUVWXYZ' \
             '0123456789_-\\[]{}`|'
         self.__str__ = self.get_full_name
-        self.dbg = lambda msg: server.dbg(str(self)+' '+str(util.filter_unicode(msg)))
-        self.handle_close = self.close_user
+        self.dbg = lambda msg: server.dbg(str(self)+' '+str(msg))
         self.notice = self.send_notice
 
     def handle_error(self):
         self.server.handle_error()
-        self.handle_close()
+        self.close_when_done()
 
     def lock_modes(self):
         '''
@@ -160,16 +157,15 @@ class User(base.BaseObject):
             out += ' '
         return action and '\01ACTION'+out+'\01' or out
 
-    def privmsg(self,src,msg,dst=None):
+    def privmsg(self,src,msg):
         '''
         recieve private message from source src with contents msg
         if dst is not None the destination is a channel
         '''
-        if self.trip is not None and src == self.get_full_trip():
-            return
-        if 'P' in self.modes and dst is not None:
+        src = str(src)
+        if 'P' in self.modes and src[0] not in util.chan_prefixs:
             msg = self.filter_message(msg)
-        self.action(src,'privmsg',msg,dst=dst)
+        self.send_raw({'src':src,'cmd':'PRIVMSG','target':self,'param':msg})
 
     def action(self,src,type,msg,dst=None):
         '''
@@ -177,10 +173,10 @@ class User(base.BaseObject):
         '''
         if dst is None:
             dst = self
-        self.send_raw(':%s %s %s :'%(src, type.upper(),dst)+msg)
+        self.send_raw({'src':src,'cmd':type.upper(),'target':dst,'param':msg})
 
 
-    def announce(self,hook):
+    def announce(self,msg):
         '''
         announce to all other users
         '''
@@ -194,34 +190,35 @@ class User(base.BaseObject):
             if u.id == self.id:
                 continue
             try:
-                hook(u)
+                u.send_raw(msg)
             except:
-                self.server.handle_error()
+                raise
 
 
     def close_user(self,reason='quit'):
         '''
-        close user and expunge cconnection
+        close user and expunge connection
         '''
-        self.dbg('%s closing connection'%self)
+        self.dbg(str(self)+' closing connection')
         reason = str(reason)
-        self.announce(lambda u : u.send_raw(':'+str(self)+' QUIT :'+reason))
+        self.announce({'src':self,'cmd':'QUIT','param':reason})
         self.server.on_user_closed(self)
-        self.close()
+        
 
     def event(self,src,type,msg):
         '''
         send event from src of type type with contents msg
         '''
-        self.send_raw(':%s %s :'%(src,type.upper())+msg)
+        self.send_raw({'src':src,'cmd':type.upper(),'param':msg})
 
     def send_raw(self,data):
         '''
         send a raw line
         '''
+        data = isinstance(data,str) and str(data) or util.dict_to_irc(data)
         if not 'u' in self.modes:
             data = util.filter_unicode(data)
-        self.dbg('--> '+str(data))
+        self.dbg(' [SEND] '+str(data))
         self.send_msg(data)
 
     def kill(self,reason):
@@ -229,8 +226,8 @@ class User(base.BaseObject):
         do not call directly
         use Server.kill(user,reason) instead
         '''
-        self.send_notice('killserv!killserv@'+str(self.server.name),'Your connection was killed: '+str(reason))
-        self.handle_close()
+        self.notice('killserv!killserv@'+str(self.server.name),'Your connection was killed: '+str(reason))
+        self.close_user('Killed: '+reason)
 
     def on_pong(self,pong):
         '''
@@ -238,14 +235,11 @@ class User(base.BaseObject):
         '''
         self.last_ping_recv = now()
 
-    def on_ping(self,ping):
+    def on_ping(self,param):
         '''
         called when we recieve a ping
         '''
-        ping = ping.split(' ')[0]
-        if ping[0] == ':':
-            ping = ping[1:]
-        self.send_raw(':'+self.server.name+' PONG '+self.server.name+' :'+ping)
+        self.send_raw({'src':self.server.name,'cmd':'PONG','target':self.server.name,'param':param})
         self.last_ping_recv = now()
 
     def send_ping(self):
@@ -253,13 +247,10 @@ class User(base.BaseObject):
         send out a ping
         '''
         self.last_ping_send = now()
-        self.send_raw('PING '+self.server.name)
+        self.send_raw({'cmd':'PING','param':self.server.name})
 
     def chanserv(self,msg):
-        self.send_notice('chanserv!chanserv@'+str(self.server.name),msg)
-
-    def get_full_trip(self):
-        return self.trip + '!tripfag@'+self.server.name
+        self.notice('chanserv!chanserv@'+str(self.server.name),msg)
 
     def join(self,chan,key=None):
         '''
@@ -269,7 +260,7 @@ class User(base.BaseObject):
         if chan in self.chans:
             self.chanserv('already in channel: '+chan)
             return
-        if chan[0] not in ['&','#'] or len(chan) > 1 and chan[1] == '.' and len(chan) < 3:
+        if chan[0] not in util.chan_prefixs or len(chan) > 1 and chan[1] == '.' and len(chan) < 3:
             self.chanserv('bad channel name: '+chan)
         else:
             if chan not in self.server.chans:
@@ -279,7 +270,7 @@ class User(base.BaseObject):
                 self.server.chans[chan].joined(self)
                 self.chans.append(chan)
             elif key is None or self.server.chans[chan].key[1] != key:
-                self.send_raw(':'+self.server.name+' 475 '+chan+' :cannot join (+k)')
+                self.send_num(475,'cannot join %s (+k)'%chan)
             else:
                 self.server.chans[chan].joined(self)
                 self.chans.append(chan)
@@ -315,11 +306,7 @@ class User(base.BaseObject):
         '''
         self.set_mode('+P')
         if 'P' in self.modes:
-            self.send_notice('modserv!service@%s'%self.server.name,'you have been nerfed')
-
-    @util.deprecate
-    def _set_single_mode(self,*args,**kwds):
-        pass
+            self.notice('modserv!service@%s'%self.server.name,'you have been nerfed')
 
     @registered
     def set_mode(self,modestring):
@@ -327,54 +314,26 @@ class User(base.BaseObject):
         set mode given a modestring
         '''
         for ch in modestring.split(' '):
-            #if ch == '+T':
-            #    if self.trip is not None:
-            #        self.send_notice('tripserv!tripserv@'+self.server.name,
-            #                         'tripcode on')
-            #        if 'T' in self.modes:
-            #            continue
-            #        for chan in self.chans:
-            #            if chan in self.server.chans:
-            #                chan = self.server.chans[chan]
-            #                if chan.is_anon:
-            #                    continue
-            #            chan.add_trip(self)
-            #elif ch == '-T':
-            #    if self.trip is not None:
-            #        self.send_notice('tripserv!tripserv@'+self.server.name,
-            #                         'tripcode off')
-            #        for chan in self.chans:
-            #            if chan in self.server.chans:
-            #                chan = self.server.chans[chan]
-            #                if chan.is_anon:
-            #                    continue
-            #            chan.remove_trip(self)
-     
             for c in ch[1:]:
                 self.modes[c] = ch[0] in '+-' and ch[0] or '-'
-                self.send_raw(':%s MODE %s :%s'%(self.nick,self.nick,self.modes[c]))
+                self.send_raw({'cmd':'MODE','target':self.nick,'src':self,'param':self.modes[c]})
 
     def get_full_name(self):
-        return self.nick+'!user@'+self.server.name
+        return self.nick+'!'+self.usr+'@'+self.server.name
      
     def timeout(self):
         '''
         call to time out the user and disconnect them
         '''
         self.dbg('timed out')
-        self.close_user()
+        self.close_user('timed out')
 
     def _rand_nick(self,l):
-        nick =  base64.b32encode(os.urandom(l)).replace(b'=',b'')
-        while nick in self.server.users:
-            nick = base64.b32encode(os.urandom(l)).replace(b'=',b'')
-        return nick.decode('utf-8')
-
-    def send_num(self,num,data):
-        '''
-        send a response that contains a status number
-        '''
-        self.send_raw(':%s %s %s %s'%(self.server.name,num,self.nick,data))
+        while True:
+            nick = base64.b32encode(os.urandom(7)).decode('utf-8').replace('=','')[l:]
+            if nick not in self.server.users:
+                break
+        return nick
 
     def do_nickname(self,nick):
         '''
@@ -383,144 +342,107 @@ class User(base.BaseObject):
         if nick.count('#') > 0:
             i = nick.index('#')
             nick = nick.encode('utf-8',errors='replace')
-            self.trip = util.tripcode(nick[:i],nick[i+1:])
-        return self.trip or self.id
+            return util.tripcode(nick[:i],nick[i+1:])
+        return self.id
 
     def handle_line(self,inbuffer):
         '''
         called when the user recieves a line
         '''
-        self.dbg('got line '+inbuffer)
-        p = inbuffer.split(' ')
-        if ':' in inbuffer:
-            i = inbuffer.index(':')
-            p = inbuffer[:i].split(' ')
-            p.append(inbuffer[i+1:])
-        
-        data = inbuffer.lower()
-        cmd = p[0].lower()
-        param = []
-        for part in p:
-            if part == '':
-                continue
-            param.append(part)
-        self.dbg('COMMAND: '+str(cmd)+' '+str(param))
+        self.dbg(' [RECV] '+inbuffer)
+        d = util.irc_to_dict(inbuffer)
+        cmd = d['cmd']
+        if cmd is not None:
+            cmd = cmd.lower()
+        target = d['target']
+        param = d['param']
+        self.dbg('COMMAND: '+str(d))
         if hasattr(self,'got_'+cmd):
-            getattr(self,'got_'+cmd)(param[1:])
+            getattr(self,'got_'+cmd)(target,param)
 
     
-    def got_quit(self,args):
-        self.close_user()
+    def got_quit(self,target,param):
+        self.close_user(param or 'quit')
     
-    @require_min_args(1)
-    def got_ping(self,args):
-        self.on_ping(args[-1])
+    def got_ping(self,target,param):
+        self.on_ping(param)
 
-    @require_min_args(1)
-    def got_pong(self,args):
-        self.on_pong(args[-1])
+    def got_who(self,target,param):
+        if target in self.server.chans:
+            self.server.chans[target].send_who(self)
 
-    @require_min_args(1)
-    def got_nick(self,args):
-        self.dbg('got nick: %s'%args[0])
-        nick = self.do_nickname(args[0])
+    def got_pong(self,target,param):
+        self.on_pong(param)
+
+    def got_nick(self,target,param):
+        param = str(param)
+        self.dbg('got nick: %s'%param)
+        nick = self.do_nickname(param)
         if not self.welcomed and len(self.nick) == 0:
             self.nick = nick
             self.usr = 'local'            
             
-    @require_min_args(4)
-    def got_user(self,args):
+    def got_user(self,target,param):
         if len(self.nick) == 0:
-            self.nick = self.do_nickname(args[0])
+            self.nick = self.do_nickname(target)
             self.server.change_nick(self,self.nick)
         self.server.on_new_user(self)
         #self.server.change_nick(self,self.do_nickname(self.nick))
 
     @registered
-    @require_min_args(1)
-    def got_mode(self,args):        
-        if args[0][0] in ['&','#']: #channel mode
-            if args[0] in self.chans:
-                if len(args) > 1:
-                    chan = self.server.chans[args[0]]
-                    if args[1] == '+k' and len(args) == 3:
-                        chan.set_key(self,args[2])
-                    elif args[1] == '-k':
-                        chan.unset_key(self)
-        elif len(args) == 2: #user mode
-            if args[0] == self.nick:
-                self.set_mode(args[1])
-            else:
-                self.send_num(502, ':Cannot change mode for other users')
-        elif len(args) == 1: #user get mode
-            if args[0] == self.nick:
-                self.send_num(221, str(self.modes))
-    
-    @registered
-    @require_min_args(1)
-    def got_part(self,args):
-        for chan in args[0].split(','):
-            self.part(chan)
+    def got_mode(self,target,param):        
+        if param is not None and param[0] in util.chan_prefixs:
+            if target is None:
+                pass
+        elif target == self.nick:
+            self.set_mode(param)
+        else:
+            return self.send_num(502,'Cannot Change mode for other users')
 
     @registered
-    @require_min_args(2)
-    def got_privmsg(self,args): 
-        msg = args[-1]
-        target = args[0]
-        dest = None
-        src = self
-        if target[0] in ['&','#']:
-            if target in self.chans or target in self.server.chans:
-                dest = self.server.chans[target]
-        else:
-            if target in self.server.users:
-                dest = self.server.users[target]
-            else:
-                for user in self.server.users.values():
-                    if hasattr(user,'trip') and user.trip == target:
-                        dest = user
-        if dest is not None:
-            dest.privmsg(src,msg)
-        if self.link is not None and not hasattr(dest,'nick'): # check for local user
-            self.link.privmsg(src,target,msg)
+    def got_part(self,target,param):
+        if param is not None:
+            for chan in param.split(','):
+                self.part(chan)
+
     @registered
-    @require_min_args(1)
-    def got_topic(self,args):
-        if len(args) > 1:
-            msg = util.filter_unicode(args[-1])
-        else:
-            msg = None
-        chan = args[0]
+    def got_privmsg(self,target,param):
+        if target in self.server.users:
+            self.server.users[target].privmsg(self,param)
+            return
+        elif target[0] in util.chan_prefixs:
+            if target in self.chans and target in self.server.chans:
+                self.server.chans[target].privmsg(self,param)
+            else:
+                return # send no such nick/chan but meh
+        
+        self.link.privmsg(self,str(target),param)
+
+    @registered
+    def got_topic(self,target,param):
+        msg = util.filter_unicode(param)
+        chan = target
         self.topic(chan,msg)
 
     @registered
-    def got_motd(self,args):
+    def got_motd(self,target,param):
         self.server.send_motd(self)
 
     @registered
-    @require_min_args(1)
-    def got_join(self,args):
-        chans = args[0].split(',')
-        if len(args) > 1:
-            passwds = args[1].split(',')
-            
-            if len(passwds) == len(chans):
-                for chan in chans:
-                    self.join(chan,passwds.pop())
-            else:
-                self.chanserv('bad format for join')
-        else:
-            for chan in chans:
+    def got_join(self,target,param):
+        if param is not None:
+            for chan in param.split(','):
                 self.join(chan)
+
     @registered
-    @require_min_args(1)
-    def got_names(self,args):
-        for chan in args[0].split(','):
-            if chan in self.chans:
-                self.server.chans[chan].send_who(self)
+    def got_names(self,target,param):
+        if target is not None:
+            for chan in target.split(','):
+                if chan in self.chans:
+                    self.server.chans[chan].send_who(self)
                 
     @registered
-    def got_list(self,args):
+    def got_list(self,target,param):
         self.server.send_list(self)
 
     def nick_change(self,user,newnick):
@@ -528,7 +450,7 @@ class User(base.BaseObject):
         called when user changes their nickname to newnick
         '''
         data = ':'+str(user)+' NICK '+newnick
-        self.send_raw(data)
+        self.send_raw({'src':user,'cmd':'NICK','param':newnick})
 
     def send_msg(self,data):
         '''
@@ -536,5 +458,9 @@ class User(base.BaseObject):
         '''
         pass
 
+
+    def send_num(self,num,param,target=None):
+        target = target and '%s %s'%(self.nick,str(target)) or self.nick
+        self.send_raw({'cmd':num,'src':self.server,'param':param,'target':target})
 
 BaseUser = User

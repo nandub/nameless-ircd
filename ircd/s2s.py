@@ -173,8 +173,8 @@ class link(async_chat):
         # hate me later
         self.dbg('on_privmsg '+str(src)+' -> '+dst+' msg='+str(msg))
         for user in self.server.users.values():
-            if hasattr(user,'trip'):
-                if dst in [user.nick,user.trip]:
+            if hasattr(user,'nick'):
+                if dst == user.nick:
                     user.privmsg(src,msg,str(user))
                     return True
         if dst in self.server.chans:

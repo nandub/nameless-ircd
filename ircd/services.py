@@ -12,9 +12,9 @@ def admin(f):
         user = args[2]
         server = args[1]
         l = util.get_admin_hash_list()
-        if isinstance(user,User) and user.trip in l or str(user) in l:
+        if hasattr(user,'nick') and user.nick in l or str(user) in l:
             f(*args, **kwds)
-        else:
+        elif hasattr(user,'kill'):
             user.kill('service abuse ;3')
        
     return func

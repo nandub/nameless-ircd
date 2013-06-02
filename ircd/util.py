@@ -4,6 +4,7 @@ import base64, hashlib, os, hmac, functools, inspect, string
 import json, sys, socket, struct, threading, sqlite3
 from functools import wraps
 
+chan_prefixs = ['&','#']
 
 class locking_dict(dict):
 
@@ -15,7 +16,6 @@ class locking_dict(dict):
         ret = list(self.keys())
         self._lock.release()
         return ret.__iter__()
-    
 
 
 def _tripcode(user,secret,salt):
@@ -200,3 +200,40 @@ tor_connect = lambda host,port: socks_connect(host,port,('127.0.0.1',9050))
 is_version = lambda major,minor : sys.version_info[0] == major and sys.version_info[1] == minor
 
 use_3_3 = is_version(3,3)
+
+@trace
+def dict_to_irc(d):
+    """
+    serialize a dict to an irc line
+    """
+    return ('src' in d and ':'+str(d['src'])+' ' or '')+str(d['cmd'])+('target' in d and ' '+ str(d['target']) or '')+('param' in d and ' :'+str(d['param']) or '')
+
+@trace
+def irc_to_dict(line):
+    """
+    return dict describing irc line
+    """
+    d = {'src':None,'cmd':None,'target':None,'param':None}
+    if line[0] == ':':
+        line = line[1:]
+        parts = line.split()
+        d['src'] = parts[0]
+        parts = parts[1:]
+    else:
+        parts = line.split()
+    l = len(parts)
+    i = ':' in line and line.index(':') or -1
+    if i != -1:
+        d['param'] = line[i+1:]
+    elif l == 3:
+        d['param'] = parts[2]
+    if l > 2:
+        d['cmd'] = parts[0]
+        d['target'] = parts[1]
+    elif l == 2:
+        d['cmd'] = parts[0]
+        if i == -1:    
+            d['param'] = parts[1]
+    elif l == 1:
+        d['cmd'] = parts[0]
+    return d

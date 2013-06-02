@@ -101,11 +101,13 @@ class User(_user,BaseUser):
 
     def handle_error(self):
         self.server.handle_error()
-        self.handle_close()
-    
-    def handle_close(self):
-        self.close_user()
-        
+        try:
+            self.close_user()
+        except:
+            raise
+        finally:
+            self.close_when_done()
+
     def __str__(self):
         return self.get_full_name()
         
@@ -283,19 +285,6 @@ class Server(dispatcher):
     def nfo(self,msg):
         self._log('INFO',msg)
 
-
-    @util.deprecate
-    def _fork(self,func):
-        '''
-        DEPRECATED
-        '''
-        def f():
-            try:
-                func()
-            except:
-                self.err(traceback.format_exc())
-            
-        return threading.Thread(target=f,args=())
     @trace
     def motd(self):
         '''
@@ -313,49 +302,14 @@ class Server(dispatcher):
         user.kill(user)
         self.close_user(user)
 
-    @trace
-    def infom_links(self,type,src,dst,msg):
-        pass
 
-    @util.deprecate
-    def privmsg(self,user,dest,msg):
-        '''
-        tell the server to send a private message from user to destination
-        dest with the contents of the message being msg
-        
-        dest can be a channel or nickname
-        '''
-        self.inform_links('privmsg',user,dest,msg)
-        onion = user.nick.endswith('.onion')
-        # someone is complaining about this
-        # not really needed regardless
-        #self.dbg('privmsg %s -> %s -- %s'%(user.nick,dest,
-        #                                   util.filter_unicode(msg)))
-        if (dest[0] in ['&','#'] and not self._has_channel(dest)) or (dest[0] not in ['&','#'] and dest not in self.users):
-            user.send_num(401,'%s :No such nick/channel'%dest)
-            return
-        if dest[0] in ['#','&']: # is a channel ?
-            dest =  dest.lower()
-            dest in user.chans and self.chans[dest].privmsg(user,msg)
-        else: # not a channel, is a user
-            dest in self.users and self.users[dest].privmsg(user,msg)
-
-    @util.deprecate
-    def set_admin(self,user):
-        '''
-        set server admin to be user
-        '''
-        if self.admin is not None:
-            self.admin.privmsg(self.service['admin'],'no longer oper')
-        self.admin = user
-        self.admin.privmsg(self.service['admin'],'you are now oper ;3')
     @trace
     def send_global(self,msg):
         '''
         send a global message to all users connected
         '''
         for user in self.handlers:
-            user.send_notice('globalserv!service@nameless',msg)
+            user.notice('globalserv!service@'+self.name,msg)
     @trace
     def has_service(self,serv):
         '''
@@ -381,10 +335,15 @@ class Server(dispatcher):
         '''
         send the message of the day to user
         '''
-        user.send_num(375,':- %s Message of the day -'%self.name)
+        user.send_num(375,'- %s Message of the day -'%self)
         for line in self.motd().split('\n'):
-            user.send_num(372, ':- %s '%line)
-        user.send_num(376, ':- End of MOTD command')
+            user.send_num(372,'- %s'%line)
+
+        user.send_num(376,'- End of MOTD command')
+    
+    def _send_user(self,user,data):
+        data['src'] = self.name
+        user.send_raw(data)
 
     @trace
     def send_welcome(self,user):
@@ -394,10 +353,10 @@ class Server(dispatcher):
         '''
         # send intial 001 response
         if not user.is_torchat:
-            user.send_num('001','Welcome to the Internet Relay Network %s'%str(user))
-            user.send_num('002','Your host is %s, running version :nameless-ircd'%self.name)
+            user.send_num('001',self)
+            user.send_num('002','Your host is %s, running nameless-ircd'%self)
             user.send_num('003','This server was created a while ago')
-            user.send_num('004','%s nameless-ircd Pu x'%self.name)
+            user.send_num('004','%s nameless-ircd :x'%self)
         # send the motd
         self.send_motd(user)
         # if there is an after_motd hook function to call , call it
@@ -417,17 +376,6 @@ class Server(dispatcher):
         '''
         self._log('DEBUG',msg)
         
-    @util.deprecate
-    def _iter(self,f_iter,f_cycle,timesleep):
-        while self.on:
-            f_cycle()
-            for nick,user in self.users.items():
-                try:
-                    f_iter(user)
-                except:
-                    self.handle_error()
-            sleep(timesleep)
-    
     @trace
     def err(self,msg):
         '''
@@ -470,23 +418,7 @@ class Server(dispatcher):
             self.users.pop(user.nick)
         if self.link is not None:
             self.link.quit(user,'user quit')
-
-    @util.deprecate
-    def close_user(self,user):
-        '''
-        DO NOT USE
-        '''
-        # services do not close
-        if user.nick.endswith('serv'):
-            return
-        # close user
-        try:
-            user.close_user()
-            if user in self.handlers:
-                self.handlers.remove(user)
-            del user
-        except:
-            self.err(traceback.format_exc())
+        user.close_when_done()
 
     @trace
     def new_channel(self,chan):
@@ -501,65 +433,6 @@ class Server(dispatcher):
         self.chans[chan] = channel.Channel(chan,self)
         
 
-    @util.deprecate
-    def pongloop(self):
-        def check_ping(user):
-            if now() - user.last_ping_recv > self.pingtimeout:
-                self.dbg('ping timeout %s'%user)
-                user.timeout()
-        def nop():
-            pass
-        self._iter(check_ping,nop,self.pingtimeout)
-
-    @util.deprecate
-    def send_admin(self,msg):
-        '''
-        send a message to the server admin
-        '''
-        for line in str(msg).split('\n'):
-            if self.admin is None:
-                # send to backlog
-                self.admin_backlog.append(msg)
-            else:
-                # privmsg the admin
-                while len(self.admin_backlog) > 0:
-                    self.admin.privmsg('adminserv!service@%s'%self.name,self.admin_backlog.pop(0))
-                self.admin.privmsg('adminserv!service@%s'%self.name,line)
-            # save to admin.log file
-            with open('log/admin.log','a') as a:
-                a.write('%s -- %s'%(now(),msg))
-                a.write('\n')
-                
-    @util.deprecate
-    def adminloop(self):
-        # wont work on windows
-        if not hasattr(socket,'AF_UNIX'):
-            return
-        adminsock = socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM)
-        sock = 'admin.sock'
-        if os.path.exists(sock):
-            os.unlink(sock)
-        adminsock.bind(sock)
-
-        while self.on:
-            try:
-                data = adminsock.recv(1024)
-                for line in data.split('\n'):
-                    self.service['admin'].handle_line(line)
-            except:
-                self.send_admin(traceback.format_exc())
-        adminsock.close()
-
-    @util.deprecate
-    def pingloop(self):
-        def ping(user):
-            self.dbg('ping %s'%user)
-            user.send_ping()
-                
-        def debug():
-            self.dbg('sending pings')
-        self._iter(ping,debug,self.pingtimeout/self.ping_retry)
-            
     @trace
     def _has_channel(self,chan):
         '''
@@ -576,24 +449,6 @@ class Server(dispatcher):
         if user.is_service:
             return
         self.send_welcome(user)
-
-    @util.deprecate
-    def add_user(self,user):
-        '''
-        add a user to the users list
-        '''
-        self.dbg('Adding User: %s'%user.nick)
-        if user.nick in self.users:
-            self.err('user %s already in users'%user)
-            return
-        self.users[user.nick] = user
-        if user.nick.endswith('serv'):
-            return
-        self.send_welcome(user)
-
-    @util.deprecate
-    def has_user(self,nick):
-        return nick in self.users.keys()
     @trace
     def send_list(self,user):
         '''
@@ -614,25 +469,6 @@ class Server(dispatcher):
         chan = chan.lower()
         self.dbg('New Channel %s'%chan)
         self.chans[chan] = Channel(chan,self)
-
-    @util.deprecate
-    def join_channel(self,user,chan):
-        '''
-        have a user join a channel
-        '''
-        # check for non existant channel
-        if chan in user.chans:
-            return
-        chan = chan.lower()
-        if chan[0] in ['&','#']: # is a valid name
-            if not self._has_channel(chan): # new channel
-                self._add_channel(chan)
-                user.send_notice('chanserv!service@%s'%self.name,'new channel %s'%chan)
-            # add user to lists
-            self.chans[chan].joined(user)
-            user.chans.append(chan)
-        else: # invalid name
-            user.send_notice('chanserv!service@%s'%self.name,'bad channel name: %s'%chan)
     @trace
     def reload(self):
         '''
@@ -658,15 +494,6 @@ class Server(dispatcher):
     def on_link_closed(self,link):
         pass
             
-    @util.deprecate
-    def part_channel(self,user,chan):
-        '''
-        have a user part a channel with name chan
-        '''
-        chan = chan.lower()
-        if chan in self.chans:
-            self.chans[chan].user_quit(user) # send part
-        self.inform_links({'src':str(user),'dst':chan,'event':'part'})
 
     @trace
     def change_nick(self,user,newnick):
