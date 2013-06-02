@@ -368,8 +368,8 @@ class User(base.BaseObject):
         self.on_ping(param)
 
     def got_who(self,target,param):
-        if target in self.server.chans:
-            self.server.chans[target].send_who(self)
+        if param in self.server.chans:
+            self.server.chans[param].send_who(self)
 
     def got_pong(self,target,param):
         self.on_pong(param)
