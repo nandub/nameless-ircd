@@ -231,7 +231,7 @@ class Channel:
             nicks += ' '
         nicks = nicks.strip()
         if len(nicks) > 0:
-            user.send_num(353,self.nicks,target=mod+' '+self.name)
+            user.send_num(353,nicks,target=mod+' '+self.name)
         user.send_num(366,'End of NAMES list',target=self)
 
     @trace
