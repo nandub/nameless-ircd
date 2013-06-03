@@ -142,7 +142,7 @@ class link(async_chat):
     @trace
     def on_notice(self,src,msg,dst):
         for user in self.server.users.values():
-            if dst in [user.nick,user.trip]:
+            if dst == user.nick:
                 user.notice(src,msg,str(user))
                 return True
         #nick = self.filter(src)
@@ -175,7 +175,7 @@ class link(async_chat):
         for user in self.server.users.values():
             if hasattr(user,'nick'):
                 if dst == user.nick:
-                    user.privmsg(src,msg,str(user))
+                    user.privmsg(src,msg)
                     return True
         if dst in self.server.chans:
             chan = self.server.chans[dst]
