@@ -1,7 +1,7 @@
 #
 # torchat driver
 #
-import socket, sqlite3, time, random, threading
+import socket, time, random, threading
 from asynchat import async_chat as chat
 from asyncore import dispatcher
 from util import locking_dict
@@ -197,54 +197,13 @@ class torchat(dispatcher):
         self.client_class = client_class
         self.server = server
         self.dbg = server.dbg
-        if self.has_cookie(onion):
-            self.cookie = self.get_cookie(onion)
-        else:
-            self.cookie = self.gen_cookie()
-            self.put_cookie(onion,self.cookie)
-            
-    def _init_cookie(self):
-        def func(cur):
-            cur.execute('CREATE TABLE IF NOT EXISTS cookies (onion TEXT, cookie TEXT)')
-        return self._db_do(func)
-
-    def put_cookie(self,onion,cookie):
-        def func(cur):
-            cur.execute('INSERT INTO cookies (onion,cookie) VALUES ( ? , ? )',(onion,cookie))
-        
-        if not self.has_cookie(onion):
-            return self._db_do(func)
+        self.cookie = self.gen_cookie()
 
     def gen_cookie(self):
         cookie = ''
         for n in range(35):
             cookie += str(random.randint(0,n+1))
         return cookie
-
-    def get_cookie(self,onion):
-        def func(cur):
-            cur.execute('SELECT cookie FROM cookies WHERE onion = ?',(onion,))
-            cookie = cur.fetchone()
-            if cookie is not None:
-                cookie = cookie[0]
-            return cookie
-        return self._db_do(func)
-
-    def has_cookie(self,onion):
-        return self.get_cookie(onion) is not None
-
-    def _db_do(self,func):
-        con = sqlite3.connect(self._db_fname)
-        cur = con.cursor()
-        ret = None
-        try:
-            ret = func(cur)
-        except:
-            con.close()
-        else:
-            con.commit()
-            con.close()
-        return ret
 
     def handle_accepted(self,sock,addr):
         in_handler(sock,self,self.client_class(self))
