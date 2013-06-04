@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import base64, hashlib, os, hmac, functools, inspect, string 
-import json, sys, socket, struct, threading, sqlite3
+import json, sys, socket, struct, threading
+try:
+    import sqlite3
+except ImportError:
+    print ('no sqlite3, topics will not be stored')
+    sqlite3 = None
 from functools import wraps
 
 chan_prefixs = ['&','#']
@@ -163,13 +168,16 @@ def trace(f):
     return wrapper
 
 _db = 'settings.db'
-c = sqlite3.connect(_db)
-cur = c.cursor()
-cur.execute('CREATE TABLE IF NOT EXISTS cache ( key TEXT , val TEXT )')
-c.commit()
-c.close()
+if sqlite3:
+    c = sqlite3.connect(_db)
+    cur = c.cursor()
+    cur.execute('CREATE TABLE IF NOT EXISTS cache ( key TEXT , val TEXT )')
+    c.commit()
+    c.close()
 
 def put(k,v):
+    if not sqlite3:
+        return
     c = sqlite3.connect(_db)
     cur = c.cursor()
     cur.execute('SELECT count(val) FROM cache WHERE key = ?',(k,))
@@ -182,6 +190,8 @@ def put(k,v):
     c.close()
 
 def get(k):
+    if not sqlite3:
+        return
     ret = None
     c = sqlite3.connect(_db)
     cur = c.cursor()
