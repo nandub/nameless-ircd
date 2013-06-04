@@ -191,7 +191,6 @@ class torchat(dispatcher):
         self.tc_version = '0.0.1'
         self.tc_onion = onion
         self._db_fname = db_fname
-        self._init_cookie()
         self.clients = locking_dict()
         self.onions = locking_dict()
         self.client_class = client_class
