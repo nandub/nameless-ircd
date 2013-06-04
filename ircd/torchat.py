@@ -345,7 +345,7 @@ class nameless_client:
         self.outcon.send_msg(msg)
 
     def on_chat(self,con,msg):
-        con = self.outcon
+ con = self.outcon
         if msg.startswith('!'):
             parts = msg.split(' ')
             self.handle_cmd(con,parts[0][1:],parts[1:])

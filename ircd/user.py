@@ -430,9 +430,15 @@ class User(base.BaseObject):
 
     @registered
     def got_join(self,target,param):
-        if param is not None:
+        if target is not None:
+            for chan in target.split(','):
+                if chan[0] in util.chan_prefixs:
+                    self.join(chan)
+        elif param is not None:
             for chan in param.split(','):
-                self.join(chan)
+                if chan[0] in util.chan_prefixs:
+                    self.join(chan)
+                
 
     @registered
     def got_names(self,target,param):
