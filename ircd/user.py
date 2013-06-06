@@ -147,6 +147,7 @@ class User(base.BaseObject):
         out = ''
         action = False
         replacement = self.server.poniponi or 'blah'
+        replacement += ' '
         wl = self.server.get_whitelist()
         if msg.startswith('\01ACTION') and msg.endswith('\01'):
             msg = msg[7:-1]
