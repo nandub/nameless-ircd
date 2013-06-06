@@ -185,8 +185,10 @@ class Channel:
                 continue
             # send privmesg
             if 'P' in user.modes:
-                msg = user.filter_message(str(msg))
-            user.send_raw({'src':src,'cmd':'PRIVMSG','target':self.name,'param':msg})
+                m = user.filter_message(str(msg))
+            else:
+                m = msg
+            user.send_raw({'src':src,'cmd':'PRIVMSG','target':self.name,'param':m})
 
         for tc in self.torchats:
             if orig == tc:
