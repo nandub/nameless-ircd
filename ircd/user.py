@@ -52,9 +52,9 @@ class modes:
         self._mode_lock = False
         
     def __getitem__(self,key):
-        if key in self._modes:
-            return self._modes[key]
-        return mode(key,False)
+        if key not in self._modes:
+            self._modes[key] = mode(key,False)
+        return self._modes[key]
     
     def __setitem__(self,key,val):
         if self._mode_lock:
