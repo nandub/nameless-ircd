@@ -142,6 +142,8 @@ class User(base.BaseObject):
         '''
         make filtered message for +P
         '''
+        if 'P' not in self.modes:
+            return msg
         out = ''
         action = False
         replacement = self.server.poniponi or 'blah'
@@ -163,8 +165,6 @@ class User(base.BaseObject):
         if dst is not None the destination is a channel
         '''
         src = str(src)
-        if 'P' in self.modes and src[0] in util.chan_prefixs:
-            msg = self.filter_message(msg)
         self.send_raw({'src':src,'cmd':'PRIVMSG','target':self,'param':msg})
 
     def action(self,src,type,msg,dst=None):
