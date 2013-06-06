@@ -215,10 +215,6 @@ class User(base.BaseObject):
         '''
         send a raw line
         '''
-        if isinstance(data,str):
-            data = str(data)
-        elif 'P' in self.modes and data['cmd'].lower() not in ['join','part','quit']:
-            data['param'] = self.filter_message(data['param'])
         data = isinstance(data,str) and str(data) or util.dict_to_irc(data)
         if not 'u' in self.modes:
             data = util.filter_unicode(data)
