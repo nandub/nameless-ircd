@@ -54,7 +54,7 @@ class modes:
     def __getitem__(self,key):
         if key in self._modes:
             return self._modes[key]
-        return '-'+key
+        return mode(key,False)
     
     def __setitem__(self,key,val):
         if self._mode_lock:
@@ -215,6 +215,10 @@ class User(base.BaseObject):
         '''
         send a raw line
         '''
+        if isinstance(data,str):
+            data = str(data)
+        elif 'P' in self.modes and data['cmd'].lower() not in ['join','part','quit']:
+            data['param'] = self.filter_message(data['param'])
         data = isinstance(data,str) and str(data) or util.dict_to_irc(data)
         if not 'u' in self.modes:
             data = util.filter_unicode(data)
@@ -315,7 +319,7 @@ class User(base.BaseObject):
         '''
         for ch in modestring.split(' '):
             for c in ch[1:]:
-                self.modes[c] = ch[0] in '+-' and ch[0] or '-'
+                self.modes[c].set(ch[0] is '+')
                 self.send_raw({'cmd':'MODE','target':self.nick,'src':self,'param':self.modes[c]})
 
     def get_full_name(self):
