@@ -163,7 +163,7 @@ class User(base.BaseObject):
         if dst is not None the destination is a channel
         '''
         src = str(src)
-        if 'P' in self.modes and src[0] not in util.chan_prefixs:
+        if 'P' in self.modes and src[0] in util.chan_prefixs:
             msg = self.filter_message(msg)
         self.send_raw({'src':src,'cmd':'PRIVMSG','target':self,'param':msg})
 
