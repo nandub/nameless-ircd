@@ -320,7 +320,7 @@ class User(base.BaseObject):
         for ch in modestring.split(' '):
             for c in ch[1:]:
                 self.modes[c].set(ch[0] is '+')
-                self.send_raw({'cmd':'MODE','target':self.nick,'src':self,'param':self.modes[c]})
+                self.send_raw({'cmd':'MODE','target':self.nick,'src':self,'param':str(self.modes[c])})
 
     def get_full_name(self):
         return self.nick+'!'+self.usr+'@'+self.server.name
