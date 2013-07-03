@@ -26,7 +26,10 @@ class adminserv(services.Service):
             'flood':self.set_flood_kill,
             '?':self.send_help,
             'link':self.link_server,
-            'delink':self.unlink_server
+            'delink':self.unlink_server,
+            'quiet':self.quiet_user,
+            'unquiet':self.unquiet_user,
+            'check':self.toggle_force_check
             })
 
     def handle_line(self,line):
@@ -71,6 +74,14 @@ class adminserv(services.Service):
     def unlink_server(self,user,args,resp_hook):
         self.server.link.disconnect_all()
         resp_hook('delinked all servers')
+
+    def toggle_force_check(self,user,args,resp_hook):
+        """
+        toggle dropping of old s2s protocol
+
+        """
+        self.server.force_check = not self.server.force_check
+        resp_hook('drop old = %s'%self.server.force_check)
 
     def die(self,user,args,resp_hook):
         """
@@ -141,6 +152,25 @@ class adminserv(services.Service):
         self.server.toggle_debug()
         resp_hook('DEBUG: %s' % self.server.debug())
 
+
+    def quiet_user(self,user,args,resp_hook):
+        """
+        set quiet
+        """
+        for u in args:
+            if u in self.server.users:
+                u = self.server.users[u]
+                u.quiet = True
+                
+    def unquiet_user(self,user,args,resp_hook):
+        """
+        unset quiet
+        """
+        for u in args:
+            if u in self.server.users:
+                u = self.server.users[u]
+                u.quiet = False
+                
     def nerf_user(self,user,args,resp_hook):
         """
         set mode +P on one or more users

@@ -26,6 +26,7 @@ class _user(async_chat):
         self.set_terminator(b'\r\n')
         self.buffer = []
         self.lines = []
+        self.quiet = False
         
     def _buffsize(self):
         ret = 0
@@ -34,6 +35,8 @@ class _user(async_chat):
         return ret
         
     def collect_incoming_data(self,data):
+        if self.quiet:
+            return
         self.buffer.append(data)
         # if too long close line
         if self._buffsize() > 1024: self.close_when_done()
@@ -44,6 +47,9 @@ class _user(async_chat):
         '''
         b = b''.join(self.buffer)
         b = b.decode('utf-8',errors='replace')
+        if self.server.check_spam(b):
+            self.quiet = True
+            return
         self.buffer = []
         # flood control
         t = int(now())
@@ -51,7 +57,7 @@ class _user(async_chat):
         # keep history limit 
         while len(self.lines) > self.server.flood_interval * 2:
             self.lines.pop()
-
+        
         # check lines for flood
         if self.check_flood(self.lines):
             if self.server.flood_kill:
@@ -138,7 +144,7 @@ class Server(dispatcher):
         self.handlers = []
         self.admin = None
         self.name = name
-
+        self.spams = []
         self.require_auth = link_auth
 
         limits = {
@@ -158,6 +164,8 @@ class Server(dispatcher):
         self.flood_bpi = 1024
         # topic limit
         self.topic_limit = 60
+
+        self.force_check = False
 
         self.chans = locking_dict()
         self.users = locking_dict()
@@ -228,8 +236,11 @@ class Server(dispatcher):
             elif tnow - user.last_ping_send > self.pingtimeout / 2:
                 user.send_ping()
             
-    
-
+    def check_spam(self,line):
+        for r in self.spams:
+            if r.match(line):
+                return True
+                
     @trace
     def toggle_debug(self):
         '''

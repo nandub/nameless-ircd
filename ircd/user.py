@@ -52,6 +52,7 @@ class modes:
         self._mode_lock = False
         
     def __getitem__(self,key):
+
         if key not in self._modes:
             self._modes[key] = mode(key,False)
         return self._modes[key]
@@ -142,6 +143,7 @@ class User(base.BaseObject):
         '''
         make filtered message for +P
         '''
+
         if 'P' not in self.modes:
             return msg
         out = ''

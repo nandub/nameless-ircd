@@ -135,7 +135,7 @@ class flood:
                             firstword = False
                         if word not in words:
                             words[word] = 0
-                    words[word] += 1
+                        words[word] += 1
             for word in words:
                 if words[word] > self.word_spam:
                     self.add_flooder(src)

@@ -115,8 +115,9 @@ def main():
         tcserv = torchat.torchat(serv,args.torchat,torchat.nameless_client)
     # run mainloop
     try:
-        asyncore.loop(timeout=10)
+        asyncore.loop(use_poll=True)
     except KeyboardInterrupt:
+        link.close()
         # kill threads
         serv.stop()
 

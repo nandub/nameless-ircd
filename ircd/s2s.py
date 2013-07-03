@@ -1,7 +1,7 @@
 from asyncore import dispatcher
 from asynchat import async_chat
 import user, util
-import socket,threading,time
+import socket,threading,time, hashlib
 
 trace = util.trace
 
@@ -200,6 +200,7 @@ class link(async_chat):
 
     @trace
     def on_line(self,line):
+        
         self.dbg(str(self)+' link recv <-- '+str(line))
         self.flood.on_line(line)
         if self.flood.line_is_flooding(line):
@@ -209,7 +210,9 @@ class link(async_chat):
             self._handle_server_register(line)
         elif 'SERVER' in line and line.startswith(':'):
             return
-
+        if line[0] != ':':
+            self.dbg('drop invalid line')
+            return
         if self._should_drop_line(line):
             return
 
@@ -224,18 +227,43 @@ class link(async_chat):
         except:
             self.nfo('invalid s2s line: '+line)
             return
+
         parts = line[1:].split(' ')
         self.dbg('link line '+str(parts))
         if len(parts) > 2:
             src, action, dst = tuple(parts[:3])
             action = action.lower()
             self.dbg('action='+str(action))
-            if not ( action in self._actions and self._actions[action](src,(' '.join(line.split(' ')[3:]))[1:],dst=dst) ):
+            p = line.split(':')[2:]
+            msg = (':'.join(p))
+            tstamp, check = None,None
+            p = line.split()[3:]
+            if p[-1] == 'urc-integ':
+                try:
+                    self.dbg(msg)
+                    #self.dbg('%s'%p)
+                    tstamp, check = int(p[-3]), p[-2]
+                    self.dbg([p[-2],p[-3]])
+                    assert len(check) == 10
+                except:
+                    tstamp, check = None, None
+            if check is not None:
+                msg = ' '.join(msg.split()[:-3])
+
+            self.dbg([tstamp,check,msg])
+            if not self._line_check(' '.join(line.split()[:-3]),tstamp,check):
+                self.nfo('dropping bad line: '+line)
+                return
+            if not ( action in self._actions and self._actions[action](src,msg,dst=dst) ):
                 for link in self.parent.links:
-                    if link == self:
-                        continue
-                    link.send_line(line)
-                        
+                    if link != self:
+                        link.send_line(line,hash=False)
+           
+    def _line_check(self,msg,tstamp,check,encoding='utf-8'):
+        if self.server.force_check:
+            return tstamp and check and hashlib.sha1((msg+' %d'%tstamp).encode(encoding)).hexdigest()[:10] == check and ( time.time() - tstamp < 10 )
+        return True
+
     def handle_error(self):
         self.parent.handle_error()
         self.handle_close()
@@ -247,8 +275,12 @@ class link(async_chat):
         self.close()
 
     @trace
-    def send_line(self,line,encoding='utf-8'):
+    def send_line(self,line,encoding='utf-8',hash=True):
         line = str(line)
+        if hash:
+            line += ' ' + str(int(time.time()))
+            line += ' ' + hashlib.sha1(line.encode(encoding)).hexdigest()[:10]
+            line += ' urc-integ'
         self.dbg(str(self)+' link send --> '+line)
         self.push(line.encode(encoding,errors='replace'))
         self.push(b'\n')
