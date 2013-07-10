@@ -1,4 +1,4 @@
-import util
+from nameless import util
 
 
 class BaseObject:

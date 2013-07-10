@@ -63,10 +63,15 @@ you can find a public list of these servers at http://anonet2.biz/
 
 * Python 3.2 or higher
 
+#### Setup ####
+
+python setup.py install
+
+#### Usage ####
 
 Super dead simple setup, will accept incomming connections at 127.0.0.1 port 6667 
 
-    python3 main.py --name irc.server.tld --host 127.0.0.1
+    ircd.py --name irc.server.tld --host 127.0.0.1
 	
 To connect to that with your irc client do 
 
@@ -94,27 +99,27 @@ SSL is currently **NOT** supported so hosting the server on tor hidden services 
 
 Accept no incomming connections use default irc port (6667) call the server "irc.server.tld" and Bind to 0.0.0.0
 
-    python3 main.py --name irc.sever.tld --no-link --host 0.0.0.0
+    ircd.py --name irc.sever.tld --no-link --host 0.0.0.0
 	
 Allow others to link up to you at via 127.0.0.1 port 6660
 
-    python3 main.py --name irc.server.tld --link-port 6660
+    ircd.py --name irc.server.tld --link-port 6660
 
 ... Or allow from anywhere
     
-	python3 main.py --name irc.server.tld --link-port 6660 --link-host 0.0.0.0
+    ircd.py --name irc.server.tld --link-port 6660 --link-host 0.0.0.0
 	
 ... or use ipv6 loopback
 
-    python3 main.py --name irc.server.tld --link-port 6660 --link-host ::1 -6
+    ircd.py --name irc.server.tld --link-port 6660 --link-host ::1 -6
 	
 Connect up to another server at some.onion port 6660 with no incomming connections allowed
 
     # currently assumes tor socks is at 127.0.0.1 port 9050
 	
-    python3 main.py --name irc.server.tld --onion-urc some.onion --no-link
+    ircd.py --name irc.server.tld --onion-urc some.onion --no-link
 
 Connect up to a remote server at irc.something.org port 6660 using ipv6 and allow incomming connetions from ::1 port 6660
 
-    python3 main.py -6 --name irc.server.tld --remote-urc irc.something.org --link-port 6660 --link-host ::1
+    ircd.py -6 --name irc.server.tld --remote-urc irc.something.org --link-port 6660 --link-host ::1
 

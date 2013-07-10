@@ -4,8 +4,8 @@
 import socket, time, random, threading
 from asynchat import async_chat as chat
 from asyncore import dispatcher
-from util import locking_dict
-import util
+from nameless.util import locking_dict
+from nameless import util
 
 class dummy_client:
     def on_connected(self,connection):

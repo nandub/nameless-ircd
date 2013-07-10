@@ -1,6 +1,6 @@
 from asyncore import dispatcher
 from asynchat import async_chat
-import user, util
+from nameless import user, util
 import socket,threading,time, hashlib
 
 trace = util.trace
@@ -228,6 +228,7 @@ class link(async_chat):
             self.nfo('invalid s2s line: '+line)
             return
 
+        # everything below this point in this function is a major hack
         parts = line[1:].split(' ')
         self.dbg('link line '+str(parts))
         if len(parts) > 2:
@@ -238,7 +239,7 @@ class link(async_chat):
             msg = (':'.join(p))
             tstamp, check = None,None
             p = line.split()[3:]
-            if p[-1] == 'urc-integ':
+            if 'urc-integ' in line and p[-1] == 'urc-integ': 
                 try:
                     self.dbg(msg)
                     #self.dbg('%s'%p)
@@ -415,6 +416,7 @@ class linkserv(dispatcher):
         for link in self.links:
             if link.relay:
                 link.privmsg(src,dst,msg)
+
     def notice(self,src,dst,msg):
         for link in self.links:
             if link.relay:

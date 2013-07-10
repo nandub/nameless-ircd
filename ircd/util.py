@@ -22,7 +22,6 @@ class locking_dict(dict):
         self._lock.release()
         return ret.__iter__()
 
-
 def _tripcode(user,secret,salt):
     code = b''
     data = str(user)
@@ -73,11 +72,13 @@ def filter_unicode(data):
     #        ret += c
     #return ret
 
-_salt = 'salt'
-if os.path.exists('salt'):
-    with open('salt') as s:
-       _salt = bytes(s.read(),'ascii')
-
+def get_salt():
+    salt_file = get_setting('salt.file') or 'salt'
+    _salt = 'salt'
+    if os.path.exists(salt_file):
+        with open(salt_file) as s:
+            _salt = bytes(s.read(),'ascii')
+    return _salt
 
 _symbols = ''
 for n in range(128):
@@ -145,13 +146,9 @@ def decorate(func):
    
     return func_wrapper
 
-@deprecate
-def get_admin_hash():
-    with open('admin.hash') as r:
-        return r.read().strip()
-
 def get_admin_hash_list():
-    with open('admins.json') as r:
+    fname = get_setting('admin.file') or 'admins.json'
+    with open(fname) as r:
         return json.load(r)
 
 toggle_trace = False
@@ -167,45 +164,54 @@ def trace(f):
         return f(*arg, **kw)
     return wrapper
 
-_db = 'settings.db'
-if sqlite3:
-    c = sqlite3.connect(_db)
-    cur = c.cursor()
-    cur.execute('CREATE TABLE IF NOT EXISTS cache ( key TEXT , val TEXT )')
-    c.commit()
-    c.close()
 
-def put(k,v):
+def init(_db='settings.db'):
+    if sqlite3:
+        c = sqlite3.connect(_db)
+        cur = c.cursor()
+        cur.execute('CREATE TABLE IF NOT EXISTS cache ( key TEXT , val TEXT )')
+        cur.execute('CREATE TABLE IF NOT EXISTS settings ( key TEXT, val TEXT)')
+        c.commit()
+        c.close()
+
+def put(k,v,settings=False,_db='settings.db'):
     if not sqlite3:
         return
+    table = settings and 'settings' or 'cache'
     c = sqlite3.connect(_db)
     cur = c.cursor()
-    cur.execute('SELECT count(val) FROM cache WHERE key = ?',(k,))
+    cur.execute('SELECT count(val) FROM %s WHERE key = ?'%table,(k,))
     _v = cur.fetchone()[0]
     if _v > 0:
-        cur.execute('UPDATE cache SET val = ? WHERE key = ?',(v,k))
+        cur.execute('UPDATE %s SET val = ? WHERE key = ?'%table,(v,k))
     else:
-        cur.execute('INSERT INTO cache (key,val) VALUES ( ? , ? )',(k,v))
+        cur.execute('INSERT INTO %s (key,val) VALUES ( ? , ? )'%table,(k,v))
     c.commit()
     c.close()
 
-def get(k):
+def get(k,settings=False,_db='settings.db'):
     if not sqlite3:
         return
     ret = None
+    table = settings and 'settings' or 'cache'
     c = sqlite3.connect(_db)
     cur = c.cursor()
-    cur.execute('SELECT count(val) FROM cache WHERE key = ?',(k,))
+    cur.execute('SELECT count(val) FROM %s WHERE key = ?'%table,(k,))
     v = cur.fetchone()[0]
     if v > 0:
-        cur.execute('SELECT val FROM cache WHERE key = ?',(k,))
+        cur.execute('SELECT val FROM %s WHERE key = ?'%table,(k,))
         ret =  cur.fetchone()[0]
     c.close()
     return ret
 
-tripcode = lambda nick, trip : _tripcode(nick,trip,_salt)
-i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',9911))
-tor_connect = lambda host,port: socks_connect(host,port,('127.0.0.1',9050))
+
+get_setting = lambda k : get(k,settings=True)
+put_setting = lambda k,v : put(k,v,settings=True)
+
+
+tripcode = lambda nick, trip : _tripcode(nick,trip,get_salt())
+i2p_connect = lambda host: socks_connect(host,0,('127.0.0.1',int(get_setting('tor.socks.port') or 9911)))
+tor_connect = lambda host,port: socks_connect(host,port,('127.0.0.1',int(get_setting('tor.socks.port') or 9050)))
 
 is_version = lambda major,minor : sys.version_info[0] == major and sys.version_info[1] == minor
 
@@ -247,3 +253,5 @@ def irc_to_dict(line):
     elif l == 1:
         d['cmd'] = parts[0]
     return d
+
+init()

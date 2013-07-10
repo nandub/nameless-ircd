@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from time import time as now
 from functools import wraps
-import util, base
+from nameless import util, base
 import base64, os
 
 locking_dict = util.locking_dict
@@ -33,7 +33,7 @@ class mode:
         self.name = name
         self.set(val)
 
-    
+
     def set(self,val):
         self.val = ( val is True and '+' ) or ( val is False and '-' ) or ( val in '+-' and val  ) or '-'
 
@@ -50,13 +50,13 @@ class modes:
     def __init__(self):
         self._modes = locking_dict()
         self._mode_lock = False
-        
+
     def __getitem__(self,key):
 
         if key not in self._modes:
             self._modes[key] = mode(key,False)
         return self._modes[key]
-    
+
     def __setitem__(self,key,val):
         if self._mode_lock:
             return
@@ -206,7 +206,7 @@ class User(base.BaseObject):
         reason = str(reason)
         self.announce({'src':self,'cmd':'QUIT','param':reason})
         self.server.on_user_closed(self)
-        
+
 
     def event(self,src,type,msg):
         '''
@@ -277,8 +277,8 @@ class User(base.BaseObject):
             else:
                 self.server.chans[chan].joined(self)
                 self.chans.append(chan)
-               
-    
+
+
     def part(self,chan):
         '''
         part a channel
@@ -323,7 +323,7 @@ class User(base.BaseObject):
 
     def get_full_name(self):
         return self.nick+'!'+self.usr+'@'+self.server.name
-     
+
     def timeout(self):
         '''
         call to time out the user and disconnect them
@@ -363,10 +363,10 @@ class User(base.BaseObject):
         if hasattr(self,'got_'+cmd):
             getattr(self,'got_'+cmd)(target,param)
 
-    
+
     def got_quit(self,target,param):
         self.close_user(param or 'quit')
-    
+
     def got_ping(self,target,param):
         self.on_ping(param)
 
@@ -380,11 +380,13 @@ class User(base.BaseObject):
     def got_nick(self,target,param):
         param = str(param)
         self.dbg('got nick: %s'%param)
-        nick = self.do_nickname(param)
         if not self.welcomed and len(self.nick) == 0:
+            nick = self.do_nickname(param)
             self.nick = nick
-            self.usr = 'local'            
-            
+            self.usr = 'local'
+        elif self.welcomed:
+            self.send_raw({'cmd':'NICK','src':str(self),'param':self.nick})
+
     def got_user(self,target,param):
         if len(self.nick) == 0:
             self.nick = self.do_nickname(target)
@@ -393,7 +395,7 @@ class User(base.BaseObject):
         #self.server.change_nick(self,self.do_nickname(self.nick))
 
     @registered
-    def got_mode(self,target,param):        
+    def got_mode(self,target,param):
         if param is not None and param[0] in util.chan_prefixs:
             if target is None:
                 pass
@@ -418,7 +420,7 @@ class User(base.BaseObject):
                 self.server.chans[target].privmsg(self,param)
             else:
                 return # send no such nick/chan but meh
-        
+
         self.link.privmsg(self,str(target),param)
 
     @registered
@@ -441,7 +443,7 @@ class User(base.BaseObject):
             for chan in param.split(','):
                 if chan[0] in util.chan_prefixs:
                     self.join(chan)
-                
+
 
     @registered
     def got_names(self,target,param):
@@ -449,7 +451,7 @@ class User(base.BaseObject):
             for chan in target.split(','):
                 if chan in self.chans:
                     self.server.chans[chan].send_who(self)
-                
+
     @registered
     def got_list(self,target,param):
         self.server.send_list(self)

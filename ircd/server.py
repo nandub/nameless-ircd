@@ -6,11 +6,12 @@ from time import time as now
 from time import sleep
 from random import randint as rand
 from threading import Thread
-import user
+from nameless import user
 User = user.User
-import socket,asyncore,base64,os,threading,traceback, json,sys
-import services, util, channel, flood
-from util import trace, locking_dict
+import socket,asyncore,base64,os,threading,traceback,json,sys
+from nameless import services, util, channel, flood
+from nameless import adminserv
+from nameless.util import trace, locking_dict
 
 BaseUser = user.BaseUser
 
@@ -27,13 +28,13 @@ class _user(async_chat):
         self.buffer = []
         self.lines = []
         self.quiet = False
-        
+
     def _buffsize(self):
         ret = 0
         for part in self.buffer:
             ret += len(part)
         return ret
-        
+
     def collect_incoming_data(self,data):
         if self.quiet:
             return
@@ -54,10 +55,10 @@ class _user(async_chat):
         # flood control
         t = int(now())
         self.lines.append((b,t))
-        # keep history limit 
+        # keep history limit
         while len(self.lines) > self.server.flood_interval * 2:
             self.lines.pop()
-        
+
         # check lines for flood
         if self.check_flood(self.lines):
             if self.server.flood_kill:
@@ -68,7 +69,7 @@ class _user(async_chat):
         else:
             #inform got line
             self.handle_line(b)
-            
+
 
     def send_msg(self,msg):
         '''
@@ -116,7 +117,7 @@ class User(_user,BaseUser):
 
     def __str__(self):
         return self.get_full_name()
-        
+
 
     def __unicode__(self):
         return unicode(self.get_full_name(),'utf-8')
@@ -134,7 +135,7 @@ class Server(dispatcher):
         self.flood.unchoke = self.flood_unchoke
         self.flooders = locking_dict()
         dispatcher.__init__(self)
-        af = ( not ipv6 and socket.AF_INET ) or socket.AF_INET6 
+        af = ( not ipv6 and socket.AF_INET ) or socket.AF_INET6
         self.create_socket(af,socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind(addr)
@@ -146,7 +147,8 @@ class Server(dispatcher):
         self.name = name
         self.spams = []
         self.require_auth = link_auth
-
+        self.wl_file = 'whitelist' in self.configs and self.configs['whitelist'] or 'whitelist.txt'
+        self.motd_file = 'motd' in self.configs and self.configs['motd'] or 'motd.txt'
         limits = {
             'nick':5,
             'topic':5,
@@ -174,19 +176,11 @@ class Server(dispatcher):
         self._check_ping = True
         self.whitelist = []
         self._check_ping = True
-        if util.use_3_3:
-            self.handle_accepted = self._accepted_3_3
-        else:
-            self.handle_accept = self._accepted_2_7
-
-        try:
-            self.load_wl()
-        except:
-            self.handle_error()
+        self.handle_accepted = self._accepted_3_3
+        self.load_wl()
         self.on =True
-        
-        for k in self.configs:
-            self.on_new_user(services.services[k](self,config=self.configs[k]))
+
+        self.init_services()
 
         def ping_loop():
             while self.on:
@@ -209,19 +203,26 @@ class Server(dispatcher):
     def flood_choke(self,src):
         self.nfo('floodchoke '+src)
         self.flooders[src] = int(now())
-        
+
     def flood_unchoke(self,src):
         if src in self.flooders:
             self.nfo('floodunchoke '+src)
             del self.flooders[src]
+
+    def init_services(self):
+        self.on_new_user(adminserv.adminserv(self))
+
 
     @trace
     def load_wl(self):
         '''
         load whitelist for mode +P
         '''
-        with open('whitelist.txt') as f:
-            self.whitelist = json.load(f)
+        if os.path.exists(self.wl_file):
+            with open(self.wl_file) as f:
+                self.whitelist = json.load(f)
+        else:
+            self.whitelist = []
     @trace
     def check_ping(self):
         '''
@@ -232,15 +233,15 @@ class Server(dispatcher):
             if tnow - user.last_ping_recv > self.pingtimeout:
                 self.nfo('timeout '+str(user))
                 user.timeout()
-                
+
             elif tnow - user.last_ping_send > self.pingtimeout / 2:
                 user.send_ping()
-            
+
     def check_spam(self,line):
         for r in self.spams:
             if r.match(line):
                 return True
-                
+
     @trace
     def toggle_debug(self):
         '''
@@ -265,7 +266,7 @@ class Server(dispatcher):
         given a list of (data, timestamp) tuples
         check for "flooding"
         '''
-        
+
         a = locking_dict()
         for line , tstamp in lines:
             tstamp /= self.flood_interval
@@ -274,7 +275,7 @@ class Server(dispatcher):
                 d['bytes'] = 0
                 d['lines'] = 0
                 a[tstamp] = d
-                
+
             d = a[tstamp]
             d['bytes'] += len(line)
             d['lines'] += 1
@@ -301,10 +302,14 @@ class Server(dispatcher):
         '''
         load message of the day
         '''
-        d = ''
-        with open('motd','r') as f:
-            d += f.read()
-        return d
+        if os.path.exists(self.motd_file):
+
+            d = ''
+            with open(self.motd_file,'r') as f:
+                d += f.read()
+                return d
+        else:
+            return 'No MOTD File'
     @trace
     def kill(self,user,reason):
         '''
@@ -328,16 +333,11 @@ class Server(dispatcher):
         '''
         return serv.lower() in self.service.keys()
 
-    # we don't really need this right now
-    #def has_nick(self,nick):
-    #    return nick.split('!')[0] in self.users.keys()
-    
-
     def _log(self,type,msg):
         if self._no_log and type.lower() not in ['nfo','err','ftl']:
             return
         print ('['+str(int(now()))+'] '+type + ' ' + str([msg]))
-        
+
         #with open('log/server.log','a') as f:
         #    f.write('[%s -- %s] %s\n'%(type,now(),msg))
 
@@ -351,7 +351,7 @@ class Server(dispatcher):
             user.send_num(372,'- %s'%line)
 
         user.send_num(376,'- End of MOTD command')
-    
+
     def _send_user(self,user,data):
         data['src'] = self.name
         user.send_raw(data)
@@ -386,7 +386,7 @@ class Server(dispatcher):
         print debug message
         '''
         self._log('DEBUG',msg)
-        
+
     @trace
     def err(self,msg):
         '''
@@ -401,15 +401,14 @@ class Server(dispatcher):
                 a.write('\n')
         except:
              traceback.print_exc()
-    
+
     @trace
     def handle_error(self):
         '''
         handle error
         '''
-        #traceback.print_exc()
         self.err(traceback.format_exc())
-    
+
 
     @trace
     def on_user_closed(self,user):
@@ -442,7 +441,7 @@ class Server(dispatcher):
         if chan in self.chans:
             return
         self.chans[chan] = channel.Channel(chan,self)
-        
+
 
     @trace
     def _has_channel(self,chan):
@@ -450,6 +449,7 @@ class Server(dispatcher):
         check if a channel exists
         '''
         return chan in self.chans.keys()
+
     @trace
     def on_new_user(self,user):
         '''
@@ -460,6 +460,7 @@ class Server(dispatcher):
         if user.is_service:
             return
         self.send_welcome(user)
+
     @trace
     def send_list(self,user):
         '''
@@ -480,18 +481,21 @@ class Server(dispatcher):
         chan = chan.lower()
         self.dbg('New Channel %s'%chan)
         self.chans[chan] = Channel(chan,self)
+
     @trace
     def reload(self):
-        '''
+        """
         reload server's state
-        '''
+        """
         self.load_wl()
+
     @trace
     def get_whitelist(self):
         '''
         get whitelist for +P
         '''
         return self.whitelist
+
     @trace
     def remove_channel(self,chan):
         '''
@@ -504,7 +508,6 @@ class Server(dispatcher):
     @trace
     def on_link_closed(self,link):
         pass
-            
 
     @trace
     def change_nick(self,user,newnick):
@@ -512,6 +515,7 @@ class Server(dispatcher):
         have user change nickname newnick
         '''
         self.dbg('server nick change '+user.nick+' -> '+newnick)
+        user.usr = 'local'
         if len(newnick) > 30 or newnick in self.users: # nickname too long
             newnick = user.do_nickname('')
 
@@ -526,7 +530,7 @@ class Server(dispatcher):
         # commit change
         user.nick = newnick
         user.usr = newnick
-        
+
         self.dbg('user is now %s'%user)
 
     @trace
@@ -542,21 +546,13 @@ class Server(dispatcher):
             self.threads.pop().join()
         self.link.handle_close()
         self.handle_close()
-        
+
     @trace
     def _accepted_3_3(self,sock,addr):
         if self.on:
             self.handlers.append(User(sock,self))
         else:
             sock.close()
-    @trace
-    def _accepted_2_7(self):
-        if self.on:
-            pair = self.accept()
-            if pair is not None:
-                sock, addr = pair
-                self.handlers.append(User(sock,self))
-        
+
     def __str__(self):
         return str(self.name)
-    

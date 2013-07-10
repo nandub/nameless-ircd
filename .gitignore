@@ -7,3 +7,6 @@ nameless
 \#*
 .\#*
 *.db
+__pycache__
+build
+venv

@@ -1,4 +1,5 @@
-import time, util
+import time
+from nameless import util
 
 class flood:
     """
@@ -9,7 +10,7 @@ class flood:
         self.objs = util.locking_dict()
         self.hist = 50
         self.lines_per_interval = 4
-        self.bytes_per_interval = 1024 
+        self.bytes_per_interval = 1024
         self.word_spam = 10
         self.pm_per_target = 5
         self.interval = 5
@@ -23,11 +24,11 @@ class flood:
         if not line.startswith(':nameless!nameless@'):
             if '&' in line or '#' in line:
                 yield line.split(' ')[0][1:]
-        
+
         #if '!' in line:
         #    i = src.index('!')
         #    yield src[1:][:i] # user
-        
+
     def now(self):
         """
         time right now
@@ -63,7 +64,7 @@ class flood:
                 self.check_src(f)
                 if f not in self.flooders:
                     self.unchoke(f)
-                
+
     def chock(self,src):
         pass
 
@@ -75,27 +76,27 @@ class flood:
         for f in self.flooders:
             if f in line:
                 return True
-        
+
     def check_src(self,src):
         if src not in self.objs:
             self.objs[src] = []
             return
         hist = list(self.objs[src])
-            
+
         hist.reverse()
         lines = dict()
         #
         # all messages are grouped into interval blocks
         #
-        # these blocks contain all events that happened 
+        # these blocks contain all events that happened
         # in an interval
-        # 
+        #
         # i = beginning of the interval block in unix time
         #
-        # [ block 0 ] list of events between i0 and i1 
+        # [ block 0 ] list of events between i0 and i1
         # [ block 1 ] list of events between i1 and i2
         #  ...
-        # [ block N ] list of events between iN-1 and iN 
+        # [ block N ] list of events between iN-1 and iN
         #
         for tstamp , line in hist:
             tstamp /= self.interval
@@ -115,8 +116,8 @@ class flood:
                 # if there are enough bytes in this interval block they are flooding
                 if bsum > self.bytes_per_interval:
                     self.add_flooder(src)
-                        
-        #    
+
+        #
         # word spam limiting
         #
         # for each interval block
@@ -126,7 +127,7 @@ class flood:
         #
         for ls in lines.values():
             words = dict()
-            for line in ls:        
+            for line in ls:
                 if 'PRIVMSG' in line:
                     firstword = True
                     for word in line.split(' ')[3:]:
@@ -139,8 +140,8 @@ class flood:
             for word in words:
                 if words[word] > self.word_spam:
                     self.add_flooder(src)
-                            
-    
+
+
 
     def check_flood(self):
         """

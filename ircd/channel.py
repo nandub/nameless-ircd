@@ -1,5 +1,5 @@
-from util import locking_dict, trace
-import util
+from nameless.util import locking_dict, trace
+from nameless import util
 
 class Channel:
     '''
@@ -240,6 +240,8 @@ class Channel:
 
     @trace
     def join_remote_user(self,name):
+        if self.has_remote_user(name):
+            return
         if self.is_invisible:
             return
         nick = name.split('!')[0]

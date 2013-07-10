@@ -1,8 +1,7 @@
 import hashlib, hmac, base64, json, re, sys, threading, time
-from util import tor_connect
-from util import tripcode
+from nameless.util import tripcode , tor_connect
 from functools import wraps
-import util, base, user
+from nameless import util, base, user
 User = user.User
 locking_dict = util.locking_dict
 
@@ -159,12 +158,3 @@ class tripserv(Service):
     def hash_trip(self,name,trip):
         return tripcode(name,trip)
         # return '%s|%s!tripcode@nameless'%(name,tripcode(trip,self.salt))
-
-# from tcserv import tcserv
-from adminserv import adminserv
-services = locking_dict({
-    #'tripserv':tripserv,
-    'adminserv':adminserv,
-    #'linkserv':linkserv,
-    #'tcserv':tcserv
-})
