@@ -123,3 +123,9 @@ Connect up to a remote server at irc.something.org port 6660 using ipv6 and allo
 
     ircd.py -6 --name irc.server.tld --remote-urc irc.something.org --link-port 6660 --link-host ::1
 
+# TODO #
+
+* Make server more compliant to the IRC protocol
+* Document Codebase more
+* Find and Fix bugs
+* Code Audit
