@@ -14,7 +14,7 @@ class Channel:
         # is anon means that the channel does not relay nicknames
         self.is_anon = self.name[0] == '&'
         self.empty = lambda : len(self.users) == 0
-        # is invisible means that parts and joins are not relayed and the 
+        # is invisible means that parts and joins are not relayed and the
         # channel is not in the server channel list
         self.is_invisible = self.name[1] == '.'
         self._trips = locking_dict()
@@ -22,15 +22,15 @@ class Channel:
         self.torchats = []
         self.limit = 300
         self.key = None
-    
+
     def expunge(self,reason):
         for user in self.remotes:
             self.send_raw({'src':user,'cmd':'PART','target':self,'param':reason})
         self.remotes = []
         for user in self.users:
             self.part_user(user,reason=reason)
-        
-        
+
+
     @trace
     def set_topic(self,user,topic):
         '''
@@ -65,8 +65,8 @@ class Channel:
         send topic to all users in channel
         '''
         for user in self.users:
-            self.send_topic_to_user(user)        
-    
+            self.send_topic_to_user(user)
+
     def send_topic_to_user(self,user):
         '''
         send topic to user
@@ -101,7 +101,7 @@ class Channel:
 
     @trace
     def joined(self,user):
-        ''' 
+        '''
         called when a user joins the channel
         '''
         tc = hasattr(user,'onion')
@@ -116,7 +116,7 @@ class Channel:
         # add to users in channel
         if not tc:
             self.users.append(user)
-        
+
         if self.is_anon:
             # send join to just the user for anon channel
             if not tc:
@@ -130,6 +130,7 @@ class Channel:
         if not tc:
             # send topic
             self.send_topic_to_user(user)
+
             # send who
             self.send_who(user)
         msg = tc and 'torchat user '+user.onion+' joined the channel' or 'user '+str(user).split('!')[0] + ' joined the channel'
@@ -151,16 +152,16 @@ class Channel:
             msg = tc and 'torchat user '+user.onion+' left the channel' or 'user '+nick+ ' left the channel'
             for u in self.torchats:
                 u.send_msg(u)
-                
-                
+
+
     def _user_quit(self,user,reason):
         '''
         called when a user parts the channel
         '''
         tc = hasattr(user,'onion')
         # remove from channel
-        if user in self.users and not tc: 
-            self.users.remove(user) 
+        if user in self.users and not tc:
+            self.users.remove(user)
         # send part to user
         if not tc:
             user.action(user,'part',reason,dst=self.name)
@@ -219,24 +220,25 @@ class Channel:
         send WHO to user
         '''
         # mode for channel to send in response
-        mod = '=' or self.is_invisible and '@' 
-        nicks = user.nick
+        mod = '=' or self.is_invisible and '@'
         if self.is_anon:
-             nicks += ' nameless'
-        else:
-            for u in self.users:
-                if u.nick == user.nick:
-                    continue
-                nicks += ' ' + u.nick
-        user.send_num(353,nicks.strip(),target=mod +' ' + self.name)
-        nicks = ''
+            user.send_num(353,'nameless '+user.nick,target=mod+' '+self.name)
+        n = ''
+        nicks = map(lambda i: str(i).split('!')[0],self.users[:])
         for u in self.remotes:
-            nicks += u.split('!')[0]
-            nicks += ' '
-        nicks = nicks.strip()
-        if len(nicks) > 0:
-            user.send_num(353,nicks,target=mod+' '+self.name)
-        user.send_num(366,'End of NAMES list',target=self)
+            nicks.append(u)
+
+        for u in nicks:
+            n += u
+            n += ' '
+        nicks = n.split()
+        while len(nicks) > 0:
+            n = 'faggot '
+            for _ in range(20):
+                if len(nicks) == 0:
+                    break
+                n += nicks.pop() + ' '
+
 
     @trace
     def join_remote_user(self,name):
@@ -259,7 +261,7 @@ class Channel:
         if name in self.remotes and not self.is_invisible:
             self.remotes.remove(name)
             self.send_raw({'src':name,'cmd':'PART','param':self})
-            
+
     @trace
     def has_remote_user(self,name):
         nick = name.split('!')[0]

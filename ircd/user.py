@@ -397,8 +397,7 @@ class User(base.BaseObject):
     @registered
     def got_mode(self,target,param):
         if param is not None and param[0] in util.chan_prefixs:
-            if target is None:
-                pass
+            self.send_num(324,'X -X',target=param)
         elif target == self.nick:
             self.set_mode(param)
         else:

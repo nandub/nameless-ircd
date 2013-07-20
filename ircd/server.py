@@ -466,7 +466,7 @@ class Server(dispatcher):
         '''
         send server channel list to user
         '''
-        user.send_num(321,'Channel :Users  Name')
+        user.send_num(321,'Channel Users :Name')
         for chan in self.chans:
             chan = self.chans[chan]
             if chan.is_invisible:
