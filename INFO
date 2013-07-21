@@ -1,0 +1,113 @@
+adminserv commands:
+
+ping
+         set ping timeout
+ 
+check
+         toggle dropping of old s2s protocol
+ 
+global
+         send global message to all users
+ 
+denerf_all
+         unset -P on every user
+ 
+die
+         turn sever off
+ 
+delink
+	No Help
+ 
+denerf
+         unset mode +P on one or more users
+ 
+nerf
+         set mode +P on one or more users
+ 
+limit
+         rate limit actions, meant to replace ``flood''
+
+         topic
+             topic setting ratelimiting
+
+         nick
+             nickname changing
+
+         privmsg#
+             private messages to # channels
+
+         privmsg&
+             private messages to & channels
+
+         join
+             channel joining
+ 
+debug
+         toggle server debug mode
+ 
+flood
+	set flood settings
+
+	kill
+		toggle kill on flood
+
+	interval [float]
+		flood interval in seconds
+
+	bpi [integer]
+		bytes per interval
+
+	lpi [integer]
+		lines per interval
+ 
+list
+	list server objects
+
+	users
+		list users
+
+	chans
+		list channels
+
+	chan:&chan
+	chan:#chan
+		list users in channel
+
+	user:nickname
+		list channels user is in
+
+	links
+		list server links
+ 
+nerf_all
+	set +P on every user
+ 
+quiet
+	set quiet
+ 
+?
+	show help message
+ 
+link
+	link to another server
+	link local $port
+	link i2p $i2pdest
+	link onion $onion
+ 
+help
+	show help message
+ 
+kill
+	kill one or more user's connections
+ 
+unquiet
+	unset quiet
+ 
+count
+	count server objects
+
+	users
+		count users
+
+	chans
+		count channels
