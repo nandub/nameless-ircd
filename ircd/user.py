@@ -268,7 +268,7 @@ class User(base.BaseObject):
                 chan = self.server.chans[chan]
                 for u in chan.users:
                     if u.nick == self.nick:
-                        user.send_num(443,'Already In Channel',target=chan)
+                        self.send_num(443,'Already In Channel',target=chan)
         else:
             if chan[0] not in util.chan_prefixs or len(chan) > 1 and chan[1] == '.' and len(chan) < 3:
                 self.chanserv('bad channel name: '+chan)
