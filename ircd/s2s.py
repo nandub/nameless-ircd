@@ -61,7 +61,7 @@ class link(async_chat):
     @trace
     def action(self,action,src,dst,msg):
         self.send_line(':'+str(src)+' '+action.upper()+' '+str(dst)+' :'+str(msg))
-        
+
     @trace
     def privmsg(self,src,dst,msg):
         if str(dst)[1] == '.':
@@ -81,7 +81,7 @@ class link(async_chat):
     @trace
     def topic(self,chan,topic):
         self.send_line(':nameless!nameless@irc.nameless.tld TOPIC '+str(chan)+' :'+str(topic))
-        
+
     @trace
     def join(self,user,chan,dst=None):
         if str(chan)[1] == '.':
@@ -92,7 +92,7 @@ class link(async_chat):
 
     def quit(self,user,reason='quit'):
         self.send_line(':'+str(user)+' QUIT :'+str(reason))
-        
+
     @trace
     def part(self,user,chan,dst):
         if str(chan)[1] == '.':
@@ -105,7 +105,7 @@ class link(async_chat):
     def on_kick(self,bully,victum,dst=None):
         reason = str(dst)
         self.notice('kickserv!kickserv@'+self.server.name,bully,'yur a $insult for kicking '+victum)
-        
+
     @trace
     def on_join(self,user,chan,dst=None):
         user = self.filter(str(user))
@@ -120,7 +120,7 @@ class link(async_chat):
                 return
             if not chan.has_remote_user(user):
                 chan.join_remote_user(user)
-                    
+
     @trace
     def on_part(self,user,reason,dst=None):
         user = self.filter(str(user))
@@ -133,7 +133,7 @@ class link(async_chat):
                 return
             if chan.has_remote_user(user):
                 chan.part_remote_user(user,reason)
-            
+
     @trace
     def on_quit(self,src,reason,dst=None):
         for chan in list(self.server.chans.values()):
@@ -157,10 +157,10 @@ class link(async_chat):
                 src = 'nameless!nameless@irc.nameless.tld'
         if obj is not None:
             obj.send_raw(':'+src+' NOTICE '+dst+' :'+msg)
-            
+
     @trace
     def on_topic(self,durr,topic,dst=None):
-        
+
         chan = dst
         if chan in self.server.chans:
             chan = self.server.chans[chan]
@@ -194,13 +194,13 @@ class link(async_chat):
 
     def _should_drop_line(self,line):
         return False
-    
+
     def send_initial_servers(self):
         pass
 
     @trace
     def on_line(self,line):
-        
+
         self.dbg(str(self)+' link recv <-- '+str(line))
         self.flood.on_line(line)
         if self.flood.line_is_flooding(line):
@@ -239,7 +239,7 @@ class link(async_chat):
             msg = (':'.join(p))
             tstamp, check = None,None
             p = line.split()[3:]
-            if 'urc-integ' in line and p[-1] == 'urc-integ': 
+            if 'urc-integ' in line and p[-1] == 'urc-integ':
                 try:
                     self.dbg(msg)
                     #self.dbg('%s'%p)
@@ -259,8 +259,11 @@ class link(async_chat):
                 for link in self.parent.links:
                     if link != self:
                         link.send_line(line,hash=False)
-           
+
     def _line_check(self,msg,tstamp,check,encoding='utf-8'):
+        if check in self.parent.cache:
+            return False
+        self.parent.cache[check] = msg
         if self.server.force_check:
             return tstamp and check and hashlib.sha1((msg+' %d'%tstamp).encode(encoding)).hexdigest()[:10] == check and ( time.time() - tstamp < 10 )
         return True
@@ -285,14 +288,16 @@ class link(async_chat):
         self.dbg(str(self)+' link send --> '+line)
         self.push(line.encode(encoding,errors='replace'))
         self.push(b'\n')
+        if len(self.parent.cache.keys()) > self.parent.max_cache:
+            self.parent.cache = {}
 
     def _handle_server_register(self,line):
-        
+
         # format is
         #
         # SERVER name.of.server 0 0 :name.of.child1,name.of.child2,name.of.child3
         # given that there are 3 child servers from the incomming connection
-        # 
+        #
         # for no children format is
         #
         # SERVER name.of.server 0 0 :name.of.server
@@ -310,7 +315,7 @@ class link(async_chat):
                 part = part.strip()
                 if self.parent.register_server(part,self):
                     response_parts.append(part)
-            
+
                     # response info has the servers that were accepted
                     #
                     # format is
@@ -334,7 +339,7 @@ class link(async_chat):
         return ret
 
 class incoming_link(link):
-    
+
     def on_server(self,src,msg,dst):
         self.dbg('link on_server src='+src+' dst='+dst+' msg='+msg)
 
@@ -348,7 +353,7 @@ class incoming_link(link):
 
     def __str__(self):
         return 'incomming link name='+str(self.name)
-    
+
 class outgoing_link(link):
 
     def send_initial_servers(self):
@@ -362,7 +367,7 @@ class outgoing_link(link):
                     continue
                 request += link.name+','
             self.send_line(request[:-1])
-        
+
     def __str__(self):
         return 'outgoing link '+link.__str__(self)
 
@@ -370,7 +375,7 @@ class linkserv(dispatcher):
     """
     s2s manager
     """
-    
+
     def __init__(self,parent,addr,ipv6=False,allow_link=True):
         af = ipv6 and socket.AF_INET6 or socket.AF_INET
         dispatcher.__init__(self)
@@ -390,7 +395,9 @@ class linkserv(dispatcher):
         self.dbg = parent.dbg
         self.nfo = parent.nfo
         self.require_auth = parent.require_auth
-
+        self.cache = {}
+        self.max_cache = 512
+        
     def reconnect_all(self):
         links = []
         for link in self.links:
@@ -476,7 +483,7 @@ class linkserv(dispatcher):
             sock.connect(('127.0.0.1',int(port)))
             return sock, None
         self._link(connect,'local-'+str(port))
-        
+
     def i2p_link(self,host):
         self._link(lambda : util.i2p_connect(host),str(host))
 
@@ -518,4 +525,3 @@ class linkserv(dispatcher):
         self.nfo('new link from '+str(addr))
         if self.server.on:
             self._new_link(sock,None,'incoming-'+str(addr[1]),incoming_link)
-        
