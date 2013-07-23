@@ -261,22 +261,32 @@ class User(base.BaseObject):
         '''
         chan = chan.lower()
         if chan in self.chans:
-            self.chanserv('already in channel: '+chan)
-            return
-        if chan[0] not in util.chan_prefixs or len(chan) > 1 and chan[1] == '.' and len(chan) < 3:
-            self.chanserv('bad channel name: '+chan)
+            if chan[0] not in util.chan_prefixs or len(chan) > 1 and chan[1] == '.' and len(chan) < 3:
+                self.chanserv('bad channel name: '+chan)
+                return
+            if chan in self.server.chans:
+                chan = self.servers.chans[chan]
+                for u in chan.users:
+                    if u.nick == user.nick:
+                        user.send_num(443,'Already In Channel',target=chan)
+                        dontjoin.append(chan)
         else:
+            if chan[0] not in util.chan_prefixs or len(chan) > 1 and chan[1] == '.' and len(chan) < 3:
+                self.chanserv('bad channel name: '+chan)
+                return
             if chan not in self.server.chans:
                 self.server.new_channel(chan)
                 self.chanserv('new channel: '+chan)
-            if self.server.chans[chan].key is None:
-                self.server.chans[chan].joined(self)
-                self.chans.append(chan)
-            elif key is None or self.server.chans[chan].key[1] != key:
+            elif self.server.chans[chan].key is not None and key is None or self.server.chans[chan].key[1] != key:
                 self.send_num(475,'cannot join %s (+k)'%chan)
             else:
-                self.server.chans[chan].joined(self)
-                self.chans.append(chan)
+                chan = self.servers.chans[chan]
+                for u in chan.users:
+                    if u.nick == user.nick:
+                        user.send_num(443,'Already In Channel',target=chan)
+                        return
+            self.server.chans[chan].joined(self)
+            self.chans.append(chan)
 
 
     def part(self,chan):
@@ -300,7 +310,6 @@ class User(base.BaseObject):
             return
         chan = self.server.chans[channame]
         chan.set_topic(self,msg)
-        chan.send_topic_to_user(self)
 
     def you_poni_now(self):
         '''
@@ -397,9 +406,10 @@ class User(base.BaseObject):
     @registered
     def got_mode(self,target,param):
         if param is not None and param[0] in util.chan_prefixs:
-            self.send_num(324,'X -X',target=param)
+            self.send_num(324,'+t',target=param)
         elif target == self.nick:
             self.set_mode(param)
+
         else:
             return self.send_num(502,'Cannot Change mode for other users')
 

@@ -42,8 +42,7 @@ class Channel:
         self.topic = topic
         util.put(self.name,topic)
         for u in self.users:
-            if u != user:
-                self.send_topic_to_user(u)
+            self.send_topic_to_user(u)
         if self.link is not None and user is not None and not self.is_invisible:
             self.link.topic(self.name,self.topic)
     @trace
@@ -105,37 +104,46 @@ class Channel:
         called when a user joins the channel
         '''
         tc = hasattr(user,'onion')
-        if not tc:
-            for u in self.users:
-                if u.nick == user.nick:
-                    user.send_num(443,'Already In Channel',target=self)
-                    return
         if len(self) > self.limit:
             user.notice(self.name,'channel is full (%s) users'%len(self))
             return
         # add to users in channel
         if not tc:
             self.users.append(user)
+            user.event(str(user),'join',self.name)
+            self.send_topic_to_user(user)
+            user.send_num(333,'0',target=self.name+' nameless')
+            mod = '=' or self.is_invisible and '@'
+            if self.is_anon:
+                user.send_num(353,'nameless '+user.nick,target=mod+' '+self.name)
+                return
+            n = ''
+            nicks = map(lambda i: str(i).split('!')[0],self.users[:])
+            for u in self.remotes:
+                nicks.append(u)
 
-        if self.is_anon:
-            # send join to just the user for anon channel
-            if not tc:
-                user.event(str(user),'join',self.name)
-        else:
-            # otherwise broadcast join
+
+            for u in nicks:
+                n += u
+                n += ' '
+            nicks = n.split()
+            while len(nicks) > 0:
+                n = user.nick+' '
+                for _ in range(20):
+                    if len(nicks) == 0:
+                        break
+                    n += nicks.pop() + ' '
+                    user.send_num(353,n,target=mod+' '+self.name)
+            user.send_num(366,'End of /NAMES list',target=self.name)
+            user.send_num(329,'0',target=self.name)
             if self.link is not None and not self.is_invisible:
                 self.link.join(user,self.name)
             for u in self.users:
                 u.event(str(user),'join',self.name)
-        if not tc:
-            # send topic
-            self.send_topic_to_user(user)
-
-            # send who
-            self.send_who(user)
-        msg = tc and 'torchat user '+user.onion+' joined the channel' or 'user '+str(user).split('!')[0] + ' joined the channel'
-        for u in self.torchats:
-            u.send_msg(msg)
+        if tc:
+            msg = tc and 'torchat user '+user.onion+' joined the channel' or 'user '+str(user).split('!')[0] + ' joined the channel'
+            for u in self.torchats:
+                u.send_msg(msg)
 
     def part_user(self,user,reason='durr'):
         self._user_quit(user,reason)
@@ -220,26 +228,6 @@ class Channel:
         send WHO to user
         '''
         # mode for channel to send in response
-        mod = '=' or self.is_invisible and '@'
-        if self.is_anon:
-            user.send_num(353,'nameless '+user.nick,target=mod+' '+self.name)
-        n = ''
-        nicks = map(lambda i: str(i).split('!')[0],self.users[:])
-        for u in self.remotes:
-            nicks.append(u)
-
-        for u in nicks:
-            n += u
-            n += ' '
-        nicks = n.split()
-        while len(nicks) > 0:
-            n = user.nick+' '
-            for _ in range(20):
-                if len(nicks) == 0:
-                    break
-                n += nicks.pop() + ' '
-            user.send_num(353,n,target=mod+' '+self.name)
-        user.send_num(366,'End of NAMES list',target=self.name)
 
     @trace
     def join_remote_user(self,name):
