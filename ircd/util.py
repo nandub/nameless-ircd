@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import base64, hashlib, os, hmac, functools, inspect, string 
+import base64, hashlib, os, hmac, functools, inspect, string
 import json, sys, socket, struct, threading
 try:
     import sqlite3
@@ -17,7 +17,7 @@ class locking_dict(dict):
         dict.__init__(self,*args,**kwds)
         self._lock = threading.Lock()
     def __iter__(self):
-        self._lock.acquire()  
+        self._lock.acquire()
         ret = list(self.keys())
         self._lock.release()
         return ret.__iter__()
@@ -84,7 +84,7 @@ _symbols = ''
 for n in range(128):
     if n > 0 and chr(n) not in string.ascii_letters:
         _symbols += chr(n)
-    
+
 def filter_message(s,replacement,whitelist):
     s = filter_unicode(s)
     parts = []
@@ -121,10 +121,10 @@ def deprecate(f):
         raise Exception('Attempted to call Deprecated function %s'%f.func_name)
     return w
 
-def decorate(func): 
+def decorate(func):
     def isFuncArg(*args, **kw):
         return len(args) == 1 and len(kw) == 0 and (inspect.isfunction(args[0]) or isinstance(args[0], type))
-    
+
     if isinstance(func, type):
         def class_wrapper(*args, **kw):
             if isFuncArg(*args, **kw):
@@ -133,17 +133,17 @@ def decorate(func):
         class_wrapper.__name__ = func.__name__
         class_wrapper.__module__ = func.__module__
         return class_wrapper
-   
+
     @wraps(func)
     def func_wrapper(*args, **kw):
         if isFuncArg(*args, **kw):
             return func(*args, **kw)
-        
+
         def functor(userFunc):
             return func(userFunc, *args, **kw)
-           
+
         return functor
-   
+
     return func_wrapper
 
 def get_admin_hash_list():
@@ -230,6 +230,8 @@ def irc_to_dict(line):
     return dict describing irc line
     """
     d = {'src':None,'cmd':None,'target':None,'param':None}
+    if len(line) == 0:
+        return d
     if line[0] == ':':
         line = line[1:]
         parts = line.split()
@@ -248,7 +250,7 @@ def irc_to_dict(line):
         d['target'] = parts[1]
     elif l == 2:
         d['cmd'] = parts[0]
-        if i == -1:    
+        if i == -1:
             d['param'] = parts[1]
     elif l == 1:
         d['cmd'] = parts[0]

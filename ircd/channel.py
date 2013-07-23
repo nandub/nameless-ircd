@@ -119,7 +119,6 @@ class Channel:
             
                 user.send_num(366,'End of /NAMES list',target=self.name)
                 user.send_num(329,'0',target=self.name)
-                self.send_topic_to_user(user)
             n = ''
             nicks = map(lambda i: str(i).split('!')[0],self.users[:])
             for u in self.remotes:
@@ -140,7 +139,6 @@ class Channel:
                 n = ''
             user.send_num(366,'End of /NAMES list',target=self.name)
             user.send_num(329,'0',target=self.name)
-            self.send_topic_to_user(user)
             if self.link is not None and not self.is_invisible:
                 self.link.join(user,self.name)
             for u in self.users:
