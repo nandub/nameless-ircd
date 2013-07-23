@@ -129,11 +129,11 @@ class Channel:
             nicks = n.split()
             n = ''
             while len(nicks) > 0:
-                for _ in range(20):
+                for p in range(20):
                     if len(nicks) == 0:
                         break
                     n += nicks.pop() + ' '
-                    user.send_num(353,n,target=mod+' '+self.name)
+                user.send_num(353,n,target=mod+' '+self.name)
                 n = ''
             user.send_num(366,'End of /NAMES list',target=self.name)
             user.send_num(329,'0',target=self.name)
