@@ -116,7 +116,10 @@ class Channel:
             mod = '=' or self.is_invisible and '@'
             if self.is_anon:
                 user.send_num(353,'nameless '+user.nick,target=mod+' '+self.name)
-                return
+            
+                user.send_num(366,'End of /NAMES list',target=self.name)
+                user.send_num(329,'0',target=self.name)
+                self.send_topic_to_user(user)
             n = ''
             nicks = map(lambda i: str(i).split('!')[0],self.users[:])
             for u in self.remotes:
