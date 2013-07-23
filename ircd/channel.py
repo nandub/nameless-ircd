@@ -233,12 +233,13 @@ class Channel:
             n += ' '
         nicks = n.split()
         while len(nicks) > 0:
-            n = 'faggot '
+            n = user.nick+' '
             for _ in range(20):
                 if len(nicks) == 0:
                     break
                 n += nicks.pop() + ' '
-
+            user.send_num(353,n,target=mod+' '+self.name)
+        user.send_num(366,'End of NAMES list',target=self.name)
 
     @trace
     def join_remote_user(self,name):
