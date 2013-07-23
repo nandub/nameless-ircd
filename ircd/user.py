@@ -277,8 +277,6 @@ class User(base.BaseObject):
             if chan not in self.server.chans:
                 self.server.new_channel(chan)
                 self.chanserv('new channel: '+chan)
-            elif self.server.chans[chan].key is not None and key is None or self.server.chans[chan].key[1] != key:
-                self.send_num(475,'cannot join %s (+k)'%chan)
             else:
                 chan = self.servers.chans[chan]
                 for u in chan.users:
