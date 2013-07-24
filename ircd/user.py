@@ -280,7 +280,7 @@ class User(base.BaseObject):
                 c = self.server.chans[chan]
                 for u in c.users:
                     if u.nick == self.nick:
-                        user.send_num(443,'Already In Channel',target=chan)
+                        self.send_num(443,'Already In Channel',target=chan)
                         return
             self.server.chans[chan].joined(self)
             self.chans.append(chan)
