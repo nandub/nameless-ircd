@@ -116,11 +116,11 @@ class Channel:
             mod = '=' or self.is_invisible and '@'
             if self.is_anon:
                 user.send_num(353,'nameless '+user.nick,target=mod+' '+self.name)
-            
+
                 user.send_num(366,'End of /NAMES list',target=self.name)
                 user.send_num(329,'0',target=self.name)
             n = ''
-            nicks = map(lambda i: str(i).split('!')[0],self.users[:])
+            nicks = list(map(lambda i: str(i).split('!')[0],self.users[:]))
             for u in self.remotes:
                 nicks.append(u)
 
@@ -139,10 +139,11 @@ class Channel:
                 n = ''
             user.send_num(366,'End of /NAMES list',target=self.name)
             user.send_num(329,'0',target=self.name)
-            if self.link is not None and not self.is_invisible:
-                self.link.join(user,self.name)
-            for u in self.users:
-                u.event(str(user),'join',self.name)
+            if not self.is_anon:
+                if self.link is not None and not self.is_invisible:
+                    self.link.join(user,self.name)
+                for u in self.users:
+                    u.event(str(user),'join',self.name)
         if tc:
             msg = tc and 'torchat user '+user.onion+' joined the channel' or 'user '+str(user).split('!')[0] + ' joined the channel'
             for u in self.torchats:
