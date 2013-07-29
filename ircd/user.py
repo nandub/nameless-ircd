@@ -118,8 +118,9 @@ class User(base.BaseObject):
         self.__str__ = self.get_full_name
         self.dbg = lambda msg: server.dbg(str(self)+' '+str(msg))
         self.notice = self.send_notice
-        self.notice(self.server, 'This is a nameless ircd')
-        
+        self.notice(str(self.server), 'This is a nameless ircd')
+       
+
     def handle_error(self):
         self.server.handle_error()
         self.close_when_done()
