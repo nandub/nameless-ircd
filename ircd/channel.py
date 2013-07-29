@@ -23,13 +23,13 @@ class Channel:
         self.limit = 300
         self.key = None
 
-    def expunge(self,reason):
+    def expunge(self,reason='channel empty'):
         for user in self.remotes:
             self.send_raw({'src':user,'cmd':'PART','target':self,'param':reason})
         self.remotes = []
         for user in self.users:
             self.part_user(user,reason=reason)
-
+        self.server.chans.pop(self.name)
 
     @trace
     def set_topic(self,user,topic):
@@ -131,20 +131,24 @@ class Channel:
                     n += ' '
                 nicks = n.split()
                 n = ''
+
                 while len(nicks) > 0:
                     for p in range(20):
                         if len(nicks) == 0:
                             break
                         n += nicks.pop() + ' '
-                    user.send_num(353,n,target=mod+' '+self.name)
+                    user.send_num(353,n.strip(),target=mod+' '+self.name)
                     n = ''
-                user.send_num(366,'End of /NAMES list',target=self.name)
+                user.send_num(366,'End of /NAMES list.',target=self.name)
                 user.send_num(329,'0',target=self.name)
             if not self.is_anon:
                 if self.link is not None and not self.is_invisible:
                     self.link.join(user,self.name)
                 for u in self.users:
+                    if u == user:
+                        continue
                     u.event(str(user),'join',self.name)
+
         if tc:
             msg = tc and 'torchat user '+user.onion+' joined the channel' or 'user '+str(user).split('!')[0] + ' joined the channel'
             for u in self.torchats:
@@ -158,7 +162,7 @@ class Channel:
         if not self.is_anon: # case non anon channel
             for u in self.users:
                 # send part to all users
-                u.action(nick,'part',reason,dst=self.name)
+                u.action(user,'part',reason,dst=self.name)
             if self.link is not None and not self.is_invisible:
                 self.link.part(str(user),self.name,dst=reason)
             tc = hasattr(user,'onion')

@@ -7,13 +7,12 @@ from time import sleep
 from random import randint as rand
 from threading import Thread
 from nameless import user
-User = user.User
 import socket,asyncore,base64,os,threading,traceback,json,sys
 from nameless import services, util, channel, flood
 from nameless import adminserv
 from nameless.util import trace, locking_dict
 
-BaseUser = user.BaseUser
+BaseUser = user.User
 
 
 
@@ -88,7 +87,7 @@ class _user(async_chat):
         '''
         if msg is not None:
             self.push(msg)
-            self.push(b'\r\n')
+            self.push(self.get_terminator())
 
 class User(_user,BaseUser):
     '''
@@ -346,7 +345,7 @@ class Server(dispatcher):
         '''
         send the message of the day to user
         '''
-        user.send_num(375,'- %s Message of the day -'%self)
+        user.send_num(375,'- %s Message of the day - '%self)
         for line in self.motd().split('\n'):
             user.send_num(372,'- %s'%line)
 
@@ -356,6 +355,9 @@ class Server(dispatcher):
         data['src'] = self.name
         user.send_raw(data)
 
+    def version(self):
+       return 'nameless.0 %s :nameless ircd'%self
+
     @trace
     def send_welcome(self,user):
         '''
@@ -364,10 +366,11 @@ class Server(dispatcher):
         '''
         # send intial 001 response
         if not user.is_torchat:
-            user.send_num('001',self)
-            user.send_num('002','Your host is %s, running nameless-ircd'%self)
-            user.send_num('003','This server was created a while ago')
-            user.send_num('004','%s nameless-ircd :x'%self)
+            user.send_num('001','Welcome to Internet Relay chat %s'%user)
+            user.send_num('002','Your host is %s, running %s'%(self,self.version()))
+            user.send_num('003','This server was created on 00:00 Jan 1 1970')
+            user.send_num('004','%s %s x :x'%(self,self.version()))
+
         # send the motd
         self.send_motd(user)
         # if there is an after_motd hook function to call , call it
@@ -466,12 +469,12 @@ class Server(dispatcher):
         '''
         send server channel list to user
         '''
-        user.send_num(321,'Channel Users :Name')
+        user.send_num(321,'Channel :Users Name')
         for chan in self.chans:
             chan = self.chans[chan]
             if chan.is_invisible:
                 continue
-            user.send_num(322,'%s %d :%s'%(chan.name,len(chan),chan.topic or ''))
+            user.send_num(322,'%s :%d %s'%(chan.name,len(chan),chan.topic or ''))
         user.send_num(323 ,':End of LIST')
     @trace
     def _add_channel(self,chan):
@@ -545,12 +548,13 @@ class Server(dispatcher):
         while len(self.threads) > 0:
             self.threads.pop().join()
         self.link.handle_close()
-        self.close()
+        self.handle_close()
 
     @trace
     def _accepted_3_3(self,sock,addr):
         if self.on:
-            self.handlers.append(User(sock,self))
+            u = User(sock,self)
+            self.handlers.append(u)
         else:
             sock.close()
 

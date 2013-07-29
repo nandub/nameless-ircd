@@ -222,7 +222,7 @@ def dict_to_irc(d):
     """
     serialize a dict to an irc line
     """
-    return ('src' in d and ':'+str(d['src'])+' ' or '')+str(d['cmd'])+('target' in d and ' '+ str(d['target']) or '')+('param' in d and ' :'+str(d['param']) or '')
+    return ('src' in d and ':'+str(d['src']).strip()+' ' or '')+str(d['cmd']).strip()+('target' in d and ' '+ str(d['target']).strip() or '')+('param' in d and ' :'+str(d['param']) or '')
 
 @trace
 def irc_to_dict(line):

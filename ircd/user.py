@@ -118,8 +118,7 @@ class User(base.BaseObject):
         self.__str__ = self.get_full_name
         self.dbg = lambda msg: server.dbg(str(self)+' '+str(msg))
         self.notice = self.send_notice
-        self.notice(str(self.server), 'This is a nameless ircd')
-       
+
 
     def handle_error(self):
         self.server.handle_error()
@@ -275,18 +274,16 @@ class User(base.BaseObject):
             if chan[0] not in util.chan_prefixs or len(chan) > 1 and chan[1] == '.' and len(chan) < 3:
                 self.chanserv('bad channel name: '+chan)
                 return
-            if chan not in self.server.chans:
-                self.server.new_channel(chan)
-                self.chanserv('new channel: '+chan)
-            else:
+            if chan in self.server.chans:
                 c = self.server.chans[chan]
                 for u in c.users:
                     if u.nick == self.nick:
                         self.send_num(443,'Already In Channel',target=chan)
                         return
+            else:
+                self.server.new_channel(chan)
             self.server.chans[chan].joined(self)
             self.chans.append(chan)
-
 
     def part(self,chan):
         '''
@@ -299,6 +296,8 @@ class User(base.BaseObject):
             chan = self.server.chans[chan]
             if self in chan.users:
                 chan.part_user(self)
+            if len(chan) == 0:
+                chan.expunge()
 
     def topic(self,channame,msg):
         '''
@@ -390,8 +389,9 @@ class User(base.BaseObject):
         self.dbg('got nick: %s'%param)
         if not self.welcomed and len(self.nick) == 0:
             nick = self.do_nickname(param)
-            self.nick = nick
+            self.nick = param
             self.usr = 'local'
+            self.after_motd = lambda : self.nick_change('%s!%s@%s'%(param,self.usr,self.server),nick) or setattr(self,'nick',nick)
         elif self.welcomed:
             self.send_raw({'cmd':'NICK','src':str(self),'param':self.nick})
 
@@ -460,6 +460,10 @@ class User(base.BaseObject):
                 if chan in self.chans:
                     self.server.chans[chan].send_who(self)
 
+
+    @registered
+    def got_ison(self,target,param):
+        self.send_num(303,':*',target='')
     @registered
     def got_list(self,target,param):
         self.server.send_list(self)
@@ -481,5 +485,3 @@ class User(base.BaseObject):
     def send_num(self,num,param,target=None):
         target = target and '%s %s'%(self.nick,str(target)) or self.nick
         self.send_raw({'cmd':num,'src':self.server,'param':param,'target':target})
-
-BaseUser = User
