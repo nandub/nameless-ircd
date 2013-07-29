@@ -469,13 +469,13 @@ class Server(dispatcher):
         '''
         send server channel list to user
         '''
-        user.send_num(321,'Channel :Users Name')
+        user.send_num(321,'Channel Users :Name')
         for chan in self.chans:
             chan = self.chans[chan]
             if chan.is_invisible:
                 continue
-            user.send_num(322,'%s :%d %s'%(chan.name,len(chan),chan.topic or ''))
-        user.send_num(323 ,':End of LIST')
+            user.send_raw({'src':self,'cmd':322,'target':'%s %s %d'%(user,chan,len(chan)),'param':chan.topic or ''})
+        user.send_num(323 ,'End of LIST')
     @trace
     def _add_channel(self,chan):
         '''
