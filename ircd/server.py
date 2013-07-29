@@ -545,7 +545,7 @@ class Server(dispatcher):
         while len(self.threads) > 0:
             self.threads.pop().join()
         self.link.handle_close()
-        self.handle_close()
+        self.close()
 
     @trace
     def _accepted_3_3(self,sock,addr):
