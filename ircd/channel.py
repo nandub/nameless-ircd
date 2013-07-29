@@ -119,26 +119,27 @@ class Channel:
 
                 user.send_num(366,'End of /NAMES list',target=self.name)
                 user.send_num(329,'0',target=self.name)
-            n = ''
-            nicks = list(map(lambda i: str(i).split('!')[0],self.users[:]))
-            for u in self.remotes:
-                nicks.append(u)
-
-
-            for u in nicks:
-                n += u
-                n += ' '
-            nicks = n.split()
-            n = ''
-            while len(nicks) > 0:
-                for p in range(20):
-                    if len(nicks) == 0:
-                        break
-                    n += nicks.pop() + ' '
-                user.send_num(353,n,target=mod+' '+self.name)
+            else:
                 n = ''
-            user.send_num(366,'End of /NAMES list',target=self.name)
-            user.send_num(329,'0',target=self.name)
+                nicks = list(map(lambda i: str(i).split('!')[0],self.users[:]))
+                for u in self.remotes:
+                    nicks.append(u)
+
+
+                for u in nicks:
+                    n += u
+                    n += ' '
+                nicks = n.split()
+                n = ''
+                while len(nicks) > 0:
+                    for p in range(20):
+                        if len(nicks) == 0:
+                            break
+                        n += nicks.pop() + ' '
+                    user.send_num(353,n,target=mod+' '+self.name)
+                    n = ''
+                user.send_num(366,'End of /NAMES list',target=self.name)
+                user.send_num(329,'0',target=self.name)
             if not self.is_anon:
                 if self.link is not None and not self.is_invisible:
                     self.link.join(user,self.name)
