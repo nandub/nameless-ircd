@@ -296,7 +296,7 @@ class link(async_chat):
         # format is
         #
         # SERVER name.of.server 0 0 :name.of.child1,name.of.child2,name.of.child3
-        # given that there are 3 child servers from the incomming connection
+        # given that there are 3 child servers from the incoming connection
         #
         # for no children format is
         #
@@ -352,7 +352,7 @@ class incoming_link(link):
         return True
 
     def __str__(self):
-        return 'incomming link name='+str(self.name)
+        return 'incoming link name='+str(self.name)
 
 class outgoing_link(link):
 
