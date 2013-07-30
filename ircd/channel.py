@@ -29,7 +29,6 @@ class Channel:
         self.remotes = []
         for user in self.users:
             self.part_user(user,reason=reason)
-        self.server.chans.pop(self.name)
 
     @trace
     def set_topic(self,user,topic):
