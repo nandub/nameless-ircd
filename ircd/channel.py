@@ -122,7 +122,7 @@ class Channel:
                 n = ''
                 nicks = list(map(lambda i: str(i).split('!')[0],self.users[:]))
                 for u in self.remotes:
-                    nicks.append(u)
+                    nicks.append(u.split('!')[0])
 
 
                 for u in nicks:

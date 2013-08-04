@@ -169,6 +169,8 @@ class User(base.BaseObject):
         if dst is not None the destination is a channel
         '''
         src = str(src)
+        if src[0] not in util.chan_prefixs:
+            src = src.split('!')[0]
         self.send_raw({'src':src,'cmd':'PRIVMSG','target':self,'param':msg})
 
     def action(self,src,type,msg,dst=None):
