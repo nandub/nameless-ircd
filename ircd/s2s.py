@@ -279,7 +279,7 @@ class link(async_chat):
         self.close()
 
     @trace
-    def send_line(self,line,encoding='utf-8',hash=True):
+    def send_line(self,line,encoding='utf-8',hash=False):
         line = str(line)
         if hash:
             line += ' ' + str(int(time.time()))
