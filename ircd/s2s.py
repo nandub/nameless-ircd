@@ -210,7 +210,7 @@ class link(async_chat):
             self._handle_server_register(line)
         elif 'SERVER' in line and line.startswith(':'):
             return
-	if len(line) == 0:
+        if len(line) == 0:
             return
         if line[0] != ':':
             self.dbg('drop invalid line')
