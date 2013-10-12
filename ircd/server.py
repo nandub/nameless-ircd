@@ -530,6 +530,7 @@ class Server(dispatcher):
         def hook(u):
             u.nick_change(user,newnick)
         user.announce(hook)
+        user.nick_change(user,newnick)
         # commit change
         user.nick = newnick
         user.usr = newnick

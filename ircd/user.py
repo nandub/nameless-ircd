@@ -390,12 +390,9 @@ class User(base.BaseObject):
         param = str(param)
         self.dbg('got nick: %s'%param)
         if not self.welcomed and len(self.nick) == 0:
-            nick = self.do_nickname(param)
             self.nick = param
             self.usr = 'local'
-            self.after_motd = lambda : self.nick_change('%s!%s@%s'%(param,self.usr,self.server),nick) or setattr(self,'nick',nick)
-        elif self.welcomed:
-            self.send_raw({'cmd':'NICK','src':str(self),'param':self.nick})
+            self.after_motd = lambda : self.server.change_nick(self,self.do_nickname(param))
 
     def got_user(self,target,param):
         if len(self.nick) == 0:
