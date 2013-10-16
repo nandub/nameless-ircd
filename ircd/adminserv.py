@@ -197,6 +197,7 @@ class adminserv(services.Service):
         set +P on every user
         """
         self.server.send_global('Global +P Usermode Set')
+        self.server.nerf()
         for u in self.server.handlers:
             u.set_mode('+P')
             u.lock_modes()
@@ -210,6 +211,7 @@ class adminserv(services.Service):
         for u in self.server.handlers:
             u.unlock_modes()
             u.set_mode('-P')
+        self.server.denerf()
         resp_hook('GLOBAL -P')
 
     def set_ping(self,user,args,resp_hook):

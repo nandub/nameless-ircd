@@ -530,7 +530,7 @@ class Server(dispatcher):
         def hook(u):
             u.nick_change(user,newnick)
         user.announce(hook)
-        user.nick_change(user,newnick)
+        user.nick_change(user,newnick) 
         # commit change
         user.nick = newnick
         user.usr = newnick
@@ -561,3 +561,9 @@ class Server(dispatcher):
 
     def __str__(self):
         return str(self.name)
+
+    def nerf(self):
+        self.poniponi = 'blah'
+    
+    def denerf(self):
+        self.poniponi = None

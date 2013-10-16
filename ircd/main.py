@@ -22,6 +22,7 @@ def main():
     import argparse
     ap = argparse.ArgumentParser()
 
+    ap.add_argument('--nerf',action='store_const',const=True,default=False)
     ap.add_argument('--port',type=int,help='port to run on',default=6667)
     ap.add_argument('--host',type=str,help='bind host',default='127.0.0.1')
     ap.add_argument('--debug',action='store_const',const=True, default=False,
@@ -63,7 +64,8 @@ def main():
         do_log=log,
         ipv6=args.ipv6,
         configs=cfgs,
-        link_auth=args.link_auth
+        link_auth=args.link_auth,
+        poni=args.nerf and 'blah' or None
         )
     
     for t in serv.threads:
@@ -87,6 +89,7 @@ def main():
 
     if args.torchat:
         tcserv = torchat.torchat(serv,args.torchat,torchat.nameless_client)
+        
     # run mainloop
     try:
         asyncore.loop(use_poll=True)

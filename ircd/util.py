@@ -89,8 +89,8 @@ def filter_message(s,replacement,whitelist):
     s = filter_unicode(s)
     parts = []
     last = ''
-    # assume first word is "good"
-    is_word = True
+    # assume first word is not "good"
+    is_word = False
     # split word into parts
     # each part are alternating "word" and "not word"
     # a "word" is something that is qualified to be
@@ -109,9 +109,9 @@ def filter_message(s,replacement,whitelist):
     # check for it being not in the whitelist
     for part, is_word in parts:
         if part.lower() in whitelist:
-            ret += part
+            ret += part.strip()
         else:
-            ret += is_word and replacement or part
+            ret += is_word and replacement.strip() or part.strip()
     return ret
 
 
