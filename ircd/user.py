@@ -90,6 +90,7 @@ class modes:
 
     def lock(self):
         self._mode_lock = True
+
     def unlock(self):
         self._mode_lock = False
 
@@ -129,6 +130,7 @@ class User(base.BaseObject):
         disable user from changing their modes
         '''
         self.modes.lock()
+
     def unlock_modes(self):
         '''
         enable user to change their modes
@@ -145,7 +147,7 @@ class User(base.BaseObject):
         make filtered message for +P
         '''
 
-        if 'P' not in self.modes:
+        if self.modes['P'].val is False:
             return msg
         out = ''
         action = False
@@ -325,7 +327,7 @@ class User(base.BaseObject):
         '''
         set mode given a modestring
         '''
-        for ch in modestring.split(' '):
+        for ch in modestring.split():
             for c in ch[1:]:
                 self.modes[c].set(ch[0] is '+')
                 self.send_raw({'cmd':'MODE','target':self.nick,'src':self,'param':str(self.modes[c])})

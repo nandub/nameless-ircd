@@ -208,10 +208,11 @@ class adminserv(services.Service):
         unset -P on every user
         """
         self.server.send_global('Global -P Usermode Set')
+        self.server.denerf()
         for u in self.server.handlers:
             u.unlock_modes()
+        for u in self.server.handlers:
             u.set_mode('-P')
-        self.server.denerf()
         resp_hook('GLOBAL -P')
 
     def set_ping(self,user,args,resp_hook):
