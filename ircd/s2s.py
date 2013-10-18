@@ -254,9 +254,10 @@ class link(async_chat):
                 msg = ' '.join(msg.split()[:-3])
 
             self.dbg([tstamp,check,msg])
-            if not self._line_check(' '.join(line.split()[:-3]),tstamp,check):
-                self.nfo('dropping bad line: '+line)
-                return
+            # meh dont need this
+            #if not self._line_check(' '.join(line.split()[:-3]),tstamp,check):
+            #    self.nfo('dropping bad line: '+line)
+            #    return
             if not ( action in self._actions and self._actions[action](src,msg,dst=dst) ):
                 for link in self.parent.links:
                     if link != self:
